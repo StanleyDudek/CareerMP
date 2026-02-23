@@ -880,7 +880,11 @@ local function computerMenuHandler(targetVehicleID) --called after a vehicle has
 	if targetVehicleID then --check nil
 		local veh = be:getObjectByID(targetVehicleID) --get vehicle object
 		if veh then --check nil, you never know
-			be:enterVehicle(0, veh) --put them in the target vehicle
+			if gameplay_walk.isWalking() then --if they're walking
+				gameplay_walk.getInVehicle(veh) --enter the vehicle
+			else --if they're in a vehicle
+				be:enterVehicle(0, veh) --switch to the target vehicle
+			end
 		end
 	end
 end
