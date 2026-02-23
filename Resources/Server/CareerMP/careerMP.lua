@@ -1,0 +1,189 @@
+--CareerMP (SERVER) by Dudekahedron, 2026
+
+local vehicleStates = {}
+local loadedPrefabs = {}
+local signalTimer = MP.CreateTimer()
+
+local trapNames = {
+    [1] = "Riverway Plaza",
+    [2] = "Plaza Northbound",
+    [3] = "Plaza Southbound",
+    [4] = "Beach",
+    [5] = "Lighthouse",
+    [6] = "Island Port Northbound",
+    [7] = "Island Port Southbound",
+    [8] = "South Belasco",
+    [9] = "Belasco City Hospital",
+    [10] = "East Belasco",
+    [11] = "Downtown Belasco",
+    [12] = "Platin Gate Bridge South",
+    [13] = "Platin Gate Bridge South",
+    [14] = "Platin Gate Bridge North",
+}
+
+function onInit()
+	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
+	MP.RegisterEvent("careerSyncRequested","careerSyncRequested")
+	MP.RegisterEvent("prefabSyncRequested","prefabSyncRequested")
+	MP.RegisterEvent("careerVehSyncRequested","careerVehSyncRequested")
+	MP.RegisterEvent("careerVehicleActiveHandler","careerVehicleActiveHandler")
+
+	MP.RegisterEvent("txUpdateDisplay", "txUpdateDisplay")
+	MP.RegisterEvent("txUpdateWinnerLight", "txUpdateWinnerLight")
+	MP.RegisterEvent("txClearDisplay", "txClearDisplay")
+	MP.RegisterEvent("txClearAll", "txClearAll")
+
+	MP.RegisterEvent("speedTrap", "speedTrap")
+    MP.RegisterEvent("redLight", "redLight")
+    MP.RegisterEvent("trafficLightTimer","trafficLightTimer")
+	MP.CreateEventTimer("trafficLightTimer", 10000)
+
+	MP.RegisterEvent("onPlayerJoin","onPlayerJoinHandler")
+	MP.RegisterEvent("onVehicleSpawn","onVehicleSpawnHandler")
+	MP.RegisterEvent("onVehicleEdited","onVehicleEditedHandler")
+	MP.RegisterEvent("onVehicleDeleted","onVehicleDeletedHandler")
+	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
+
+	print("[CareerMP] ---------- CareerMP Loaded!")
+end
+
+function txUpdateDisplay(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateDisplay", data)
+		end
+	end
+end
+
+function txUpdateWinnerLight(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateWinnerLight", data)
+		end
+	end
+end
+
+function txClearDisplay(player_id)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxClearDisplay", "")
+		end
+	end
+end
+
+function txClearAll(player_id)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxClearAll", "")
+		end
+	end
+end
+
+function speedTrap(player_id, data)
+    local speedTrapData = Util.JsonDecode(data)
+    local triggerName = speedTrapData.triggerName
+    local triggerNumber = tonumber(string.match(triggerName, "%d+"))
+    local triggerPlace = trapNames[triggerNumber] or "Unknown"
+    local player_name = MP.GetPlayerName(player_id)
+	MP.SendNotification(-1, "Speed Violation by " .. player_name .. "!", "survellianceCamera", "survellianceCamera")
+	MP.SendNotification(-1, "Speed: " .. string.format( "%.1f", speedTrapData.playerSpeed * 2.23694 ) .. " in " .. string.format( "%.0f", speedTrapData.speedLimit * 2.23694 ) .. " MPH Zone", "powerGauge05", "powerGauge05")
+	MP.SendNotification(-1, "Location: " .. triggerPlace, "location1", "location1")
+	MP.SendNotification(-1, "Vehicle: " .. speedTrapData.vehicleModel, "car", "car")
+	MP.SendNotification(-1, "Plate: " .. speedTrapData.licensePlate, "code", "code")
+end
+
+function redLight(player_id, data)
+    local redLightData = Util.JsonDecode(data)
+    local triggerName = redLightData.triggerName
+    local triggerNumber = tonumber(string.match(triggerName, "%d+"))
+    local triggerPlace = trapNames[triggerNumber] or "Unknown"
+    local player_name = MP.GetPlayerName(player_id)
+	MP.SendNotification(-1, "Failure to stop at Red Light by " .. player_name .. "!", "trafficLight", "trafficLight")
+	MP.SendNotification(-1, "Speed: " .. string.format( "%.1f", redLightData.playerSpeed * 2.23694 ) .. " MPH", "powerGauge05", "powerGauge05")
+	MP.SendNotification(-1, "Location: " .. triggerPlace, "location1", "location1")
+	MP.SendNotification(-1, "Vehicle: " .. redLightData.vehicleModel, "car", "car")
+	MP.SendNotification(-1, "Plate: " .. redLightData.licensePlate, "code", "code")
+end
+
+local synced = false
+
+function trafficLightTimer()
+	if synced then
+		MP.TriggerClientEvent(-1, "rxTrafficSignalTimer", tostring(signalTimer:GetCurrent()))
+	end
+end
+
+function careerVehSyncRequested(player_id)
+	synced = true
+	MP.TriggerClientEventJson(player_id, "rxCareerVehSync", vehicleStates)
+end
+
+function careerPrefabSync(player_id, data)
+    local prefab = Util.JsonDecode(data)
+    if prefab.pLoad == true then
+        loadedPrefabs[player_id][prefab.pName] = prefab
+    elseif prefab.pLoad == false then
+        loadedPrefabs[player_id][prefab.pName] = nil
+    end
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxPrefabSync", data)
+		end
+	end
+end
+
+function careerSyncRequested(player_id)
+	MP.TriggerClientEvent(player_id, "rxCareerSync", "")
+end
+
+function prefabSyncRequested(player_id)
+    for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			if loadedPrefabs[id] then
+				for k,v in pairs(loadedPrefabs[id]) do
+					MP.TriggerClientEventJson(player_id, "rxPrefabSync", loadedPrefabs[id][k])
+				end
+			end
+        end
+    end
+end
+
+function careerVehicleActiveHandler(player_id, data)
+	local vehicleData = Util.JsonDecode(data)
+	if vehicleStates[vehicleData.serverVehicleID] then
+		vehicleStates[vehicleData.serverVehicleID].active = vehicleData.active
+	else
+		vehicleStates[vehicleData.serverVehicleID] = {}
+		vehicleStates[vehicleData.serverVehicleID].active = vehicleData.active
+	end
+	MP.TriggerClientEventJson(-1, "rxCareerVehSync", vehicleStates)
+end
+
+function onPlayerJoinHandler(player_id)
+    loadedPrefabs[player_id] = {}
+end
+
+function onVehicleSpawnHandler(player_id, vehicle_id,  data)
+	vehicleStates[player_id .. "-" .. vehicle_id] = {}
+	vehicleStates[player_id .. "-" .. vehicle_id].active = true
+	MP.TriggerClientEventJson(-1, "rxCareerVehSync", vehicleStates)
+end
+
+function onVehicleEditedHandler(player_id, vehicle_id,  data)
+	if vehicleStates[player_id .. "-" .. vehicle_id] then
+		vehicleStates[player_id .. "-" .. vehicle_id].active = true
+	else
+		vehicleStates[player_id .. "-" .. vehicle_id] = {}
+		vehicleStates[player_id .. "-" .. vehicle_id].active = true
+	end
+end
+
+function onVehicleDeletedHandler(player_id, vehicle_id)
+	if vehicleStates[player_id .. "-" .. vehicle_id] then
+		vehicleStates[player_id .. "-" .. vehicle_id] = nil
+	end
+end
+
+function onPlayerDisconnectHandler(player_id)
+	loadedPrefabs[player_id] = nil
+end
