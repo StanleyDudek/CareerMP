@@ -6,8 +6,8 @@ local M = {}
 
 M.dependencies = {"career_career"}
 
-local computerTetherRangeSphere = 10 --meter
-local computerTetherRangeBox = 10 --meter
+local computerTetherRangeSphere = 20 --meter
+local computerTetherRangeBox = 20 --meter
 local tether
 
 local computerFunctions
