@@ -1060,51 +1060,6 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	end
 end
 
-local function onPreRender()
-	if worldReadyState == 2 then
-		local vehicles = MPVehicleGE.getVehicles()
-		local activeVehicle = be:getPlayerVehicle(0)
-		local activeVehiclePos = activeVehicle and vec3(activeVehicle:getPosition()) or nil
-		local activeVehicleID = activeVehicle and activeVehicle:getID() or nil
-		local cameraPos = vec3(core_camera.getPosition())
-		if activeVehicle then
-			if not commands.isFreeCamera() then
-				cameraPos = activeVehiclePos
-			end
-			for _, vehicle in pairs(vehicles) do
-				local owner = vehicle:getOwner()
-				if vehicle.isLocal or not owner then
-					goto skip_vehicle
-				end
-				local gameVehicleID = vehicle.gameVehicleID
-				local fadeVehicle = be:getObjectByID(gameVehicleID)
-				vehicle.position = vec3(be:getObjectOOBBCenterXYZ(gameVehicleID))
-				local fadePos = Point3F(vehicle.position.x, vehicle.position.y, vehicle.position.z)
-				local fadeFloatDist = (cameraPos or vec3()):distance(fadePos)
-				if fadeVehicle then
-					if activeVehicleID == gameVehicleID then
-						fadeVehicle:setMeshAlpha(1, "", false)
-					else
-						fadeVehicle:setMeshAlpha(1 - clamp(linearScale(fadeFloatDist, 5, 0, 0, 1), 0, 1), "", false)
-					end
-				end
-				:: skip_vehicle ::
-			end
-		end
-	end
-end
-
-local function onBeamNGTrigger(data)
-	if data.triggerName:find("ZonePhys") and MPVehicleGE.isOwn(data.subjectID) then
-		if data.event == "exit" then
-			be:setDynamicCollisionEnabled(true)
-		elseif data.event == "enter" then
-			be:setDynamicCollisionEnabled(false)
-		end
-		Engine.Audio.playOnce('AudioGui', "event:UI_Checkpoint", {volume = 2, unique = true})
-	end
-end
-
 --Loading / Unloading
 
 local function onExtensionLoaded() --called by the base game when the extension loads, good place to setup MP event handlers
@@ -1132,8 +1087,6 @@ end
 
 --Access
 
-M.onBeamNGTrigger = onBeamNGTrigger
-
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
 M.onVehicleReady = onVehicleReady
@@ -1155,7 +1108,6 @@ M.onClientPostStartMission = onClientPostStartMission
 
 M.onWorldReadyState = onWorldReadyState
 M.onUpdate = onUpdate
-M.onPreRender = onPreRender
 
 M.onExtensionLoaded = onExtensionLoaded
 M.onExtensionUnloaded = onExtensionUnloaded
