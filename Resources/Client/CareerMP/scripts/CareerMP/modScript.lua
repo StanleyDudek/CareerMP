@@ -1,8 +1,5 @@
-load('CareerMP')
-setExtensionUnloadMode('CareerMP', 'manual')
+load('careerMPEnabler')
+setExtensionUnloadMode('careerMPEnabler', 'manual')
 
-load('/career/mpCareer')
-setExtensionUnloadMode('/career/mpCareer', 'manual')
-
-load('/freeroam/mpBigMapMode')
-setExtensionUnloadMode('/freeroam/mpBigMapMode', 'manual')
+load('/career/careerMP')
+setExtensionUnloadMode('/career/careerMP', 'manual')

@@ -6,166 +6,123 @@ local M = {}
 
 local imgui = ui_imgui
 
-M.dependencies = {'career_saveSystem', 'core_recoveryPrompt'}
+M.dependencies = {'career_saveSystem', 'core_recoveryPrompt', 'gameplay_traffic'}
 
 M.tutorialEnabled = false
+
+local debugMenuEnabled = not shipping_build
 
 local careerModuleDirectory = '/lua/ge/extensions/career/modules/'
 local saveFile = "general.json"
 local levelName = "west_coast_usa"
-local defaultLevel = "/levels/west_coast_usa/main.level.json"
 local autosaveEnabled = true
 
 local careerActive = false
 local careerModules = {}
-local debugActive = true
-local closeAfterSaving
-local boughtStarterVehicle
+local boughtStarterVehicle = false
+local organizationInteraction = {}
 
-local actionsToBlockOnlyInShippingMode = {"dropPlayerAtCameraNoReset"}
+local devActions = {"dropPlayerAtCameraNoReset"}
+local nodegrabberActions = {"nodegrabberGrab", "nodegrabberRender", "nodegrabberStrength"}
 
-local blockedActions = core_input_actionFilter.createActionTemplate({"vehicleTeleporting", "vehicleMenues", "physicsControls", "aiControls", "vehicleSwitching", "funStuff"}, actionsToBlockOnlyInShippingMode)
+
+local actionWhitelist = deepcopy(devActions)
+arrayConcat(actionWhitelist, nodegrabberActions)
+local blockedActions = core_input_actionFilter.createActionTemplate({"vehicleTeleporting", "vehicleMenues", "physicsControls", "aiControls", "vehicleSwitching", "funStuff"}, actionWhitelist)
 
 -- TODO maybe save whenever we go into the esc menu
 
+local function updateNodegrabberBlocking()
+  -- enable node grabber only in walking mode
+  if careerActive and (core_camera.getActiveGlobalCameraName() or not gameplay_walk.isWalking()) then
+    core_input_actionFilter.setGroup('careerNodeGrabberActions', nodegrabberActions)
+    core_input_actionFilter.addAction(0, 'careerNodeGrabberActions', true)
+    be.nodeGrabber:onMouseButton(false)
+    return
+  end
+  core_input_actionFilter.setGroup('careerNodeGrabberActions', nodegrabberActions)
+  core_input_actionFilter.addAction(0, 'careerNodeGrabberActions', false)
+end
+
 local function blockInputActions(block)
   if shipping_build then
-    core_input_actionFilter.setGroup('careerBlockedDevActions', actionsToBlockOnlyInShippingMode)
+    core_input_actionFilter.setGroup('careerBlockedDevActions', devActions)
     core_input_actionFilter.addAction(0, 'careerBlockedDevActions', block)
   end
 
   core_input_actionFilter.setGroup('careerBlockedActions', blockedActions)
   core_input_actionFilter.addAction(0, 'careerBlockedActions', block)
+
+  updateNodegrabberBlocking()
 end
 
+local function onCameraModeChanged(modeName)
+  if not careerActive then return end
+  updateNodegrabberBlocking()
+end
+
+local function onGlobalCameraSet(modeName)
+  if not careerActive then return end
+  updateNodegrabberBlocking()
+end
+
+local debugModules = {}
 local function debugMenu()
   if not careerActive then return end
-  imgui.SetNextWindowSize(imgui.ImVec2(300, 300), imgui.Cond_FirstUseEver)
-  imgui.Begin("Career Debug")
-
-  imgui.Text("Money: " .. career_modules_playerAttributes.getAttribute("money").value)
-  imgui.SameLine()
-  if imgui.Button("+10000##money") then career_modules_playerAttributes.addAttribute("money", 10000, {label="Cheating"}) end
-  imgui.SameLine()
-  if imgui.Button("+1000##money") then career_modules_playerAttributes.addAttribute("money", 1000, {label="Cheating"}) end
-  imgui.SameLine()
-  if imgui.Button("-1000##money") then career_modules_playerAttributes.addAttribute("money", -1000, {label="Cheating"}) end
-  imgui.SameLine()
-  if imgui.Button("-10000##money") then career_modules_playerAttributes.addAttribute("money", -10000, {label="Cheating"}) end
-
-  imgui.Text("BeamXP: " .. career_modules_playerAttributes.getAttribute("beamXP").value)
-  imgui.SameLine()
-  if imgui.Button("+1000##beamXP") then career_modules_playerAttributes.addAttribute("beamXP", 1000, {label="Cheating"}) end
-  imgui.SameLine()
-  if imgui.Button("-1000##beamXP") then career_modules_playerAttributes.addAttribute("beamXP", -1000, {label="Cheating"}) end
-
-  imgui.Text("Bonus Stars: " .. career_modules_playerAttributes.getAttribute("bonusStars").value)
-  imgui.SameLine()
-  if imgui.Button("+1000##bonusStars") then career_modules_playerAttributes.addAttribute("bonusStars", 1000, {label="Cheating"}) end
-  imgui.SameLine()
-  if imgui.Button("-1000##bonusStars") then career_modules_playerAttributes.addAttribute("bonusStars", -1000, {label="Cheating"}) end
-
-  for _, branch in ipairs(career_branches.getSortedBranches()) do
-    imgui.Text(branch.name ..": " .. career_modules_playerAttributes.getAttribute(branch.attributeKey).value.. " ( Level "..career_branches.getBranchLevel(branch.id).." )")
-    imgui.SameLine()
-    if imgui.Button("+100##"..branch.name) then career_modules_playerAttributes.addAttribute(branch.attributeKey,100, {label="Cheating"}) end
-    imgui.SameLine()
-    if imgui.Button("+500##"..branch.name) then career_modules_playerAttributes.addAttribute(branch.attributeKey,500, {label="Cheating"}) end
-  end
-  if imgui.Button("Quests Debug") then
-    career_modules_questDebug.openQuestDebug()
-  end
-  if imgui.Button("Reload Missions") then gameplay_missions_missions.reloadCompleteMissionSystem() end
-  if imgui.Button("Make All Missions Startable") then
-    for _, m in ipairs(gameplay_missions_missions.getFilesData()) do
-      instance = gameplay_missions_missions.getMissionById(m.id)
-      instance.unlocks.startable = true
-      instance.unlocks.visible = true
-    end
-    gameplay_rawPois.clear()
-  end
-  if imgui.Button("Enter Garage Mode##dasdasd") then
-    gameplay_garageMode.start(true)
-  end
-
-  if gameplay_garageMode.isActive() then
-    if imgui.Button("Exit Garage Mode") then
-      gameplay_garageMode.stop()
-    end
-  end
-  if imgui.Button("Save Career") then
-    career_saveSystem.saveCurrent()
-  end
   local endCareerMode = false
-  if imgui.Button("Exit Career Mode") then
-    endCareerMode = true
+
+  local debugSettings = settings.getValue('careerDebugSettings')
+  imgui.SetNextWindowSize(imgui.ImVec2(300, 300), imgui.Cond_FirstUseEver)
+  imgui.Begin("Career Debug (Save File: " .. career_saveSystem.getCurrentSaveSlot() .. ")###Career Debug", nil, imgui.WindowFlags_MenuBar)
+  imgui.BeginMenuBar()
+  if imgui.BeginMenu("File") then
+    local currentSaveSlot, currentSavePath = career_saveSystem.getCurrentSaveSlot()
+    imgui.Text((string.sub(currentSavePath, string.len(career_saveSystem.getSaveRootDirectory())+2, -1)))
+    imgui.Separator()
+    if imgui.Selectable1("Save Career") then
+      career_saveSystem.saveCurrent()
+    end
+    if imgui.Selectable1("Exit Career Mode") then
+      endCareerMode = true
+    end
+    if imgui.Selectable1("Open Save Folder") then
+      Engine.Platform.exploreFolder(currentSavePath:lower())
+    end
+    imgui.EndMenu()
   end
-
-  if imgui.Button("Add this Vehicle as new vehicle to inventory") then
-    local inventoryId = career_modules_inventory.addVehicle(be:getPlayerVehicleID(0))
-    career_modules_inventory.enterVehicle(inventoryId)
-  end
-
-  local currentVehicle = career_modules_inventory.getCurrentVehicle()
-
-  if currentVehicle then
-    imgui.Text("Current Vehicle: " .. currentVehicle .. " (" .. career_modules_inventory.getVehicles()[currentVehicle].model .. ")")
-  end
-
-  local vehicleToSell
-  if imgui.BeginChild1("Owned Vehicles", imgui.ImVec2(0, 150), true) then
-    imgui.Text("Change to one of your vehicles")
-
-    for id, data in pairs(career_modules_inventory.getVehicles()) do
-      if imgui.Button("id " .. id .. " (" .. data.model .. ")") then
-        career_modules_inventory.enterVehicle(id)
-      end
-      imgui.SameLine()
-
-      if imgui.Button(string.format("sell ##%d",  id)) then
-        vehicleToSell = id
+  if imgui.BeginMenu("Modules") then
+    for _, mod in ipairs(debugModules) do
+      local active = debugSettings[mod.debugName] or false
+      if mod.drawDebugMenu then
+        if imgui.Checkbox(mod.debugName, imgui.BoolPtr(active)) then
+          debugSettings[mod.debugName] = not active
+          settings.setValue('careerDebugSettings', debugSettings)
+        end
       end
     end
-  end
-  imgui.EndChild()
-
-  if imgui.Button("Part Shop") then
-    career_modules_partShopping.startShopping()
-  end
-  imgui.SameLine()
-  if imgui.Button("Part Inventory") then
-    career_modules_partInventory.openMenu()
+    imgui.EndMenu()
   end
 
-  if imgui.Button("Vehicle Shop") then
-    career_modules_vehicleShopping.openShop()
-  end
-  imgui.SameLine()
-  if imgui.Button("Vehicle Inventory") then
-    career_modules_inventory.openMenu()
-  end
-
-  if imgui.Button("Fuel") then
-    career_modules_fuel.startTransaction()
-  end
-
-  if imgui.Button("Tuning") then
-    career_modules_tuning.start()
+  if imgui.BeginMenu("Functions") then
+    for _, mod in ipairs(careerModules) do
+      if extensions[mod].drawDebugFunctions then
+        imgui.Text(extensions[mod].debugName or extensions[mod].__extensionName__)
+        extensions[mod].drawDebugFunctions()
+        imgui.Separator()
+      end
+    end
+    imgui.EndMenu()
   end
 
-  if imgui.Button("Reset insurance data") then
-    career_modules_insurance.resetPlPolicyData()
+  imgui.EndMenuBar()
+  for _, mod in ipairs(debugModules) do
+    local active = debugSettings[mod.debugName] or false
+    if mod.drawDebugMenu and active then
+      mod.drawDebugMenu(dt)
+      imgui.Separator()
+    end
   end
-
-  imgui.Separator()
-
-  career_modules_linearTutorial.debugMenu()
-
   imgui.End()
-
-  if vehicleToSell then
-    career_modules_inventory.sellVehicleFromInventory(vehicleToSell)
-  end
 
   if endCareerMode then
     M.deactivateCareer()
@@ -200,6 +157,7 @@ local function toggleCareerModules(active, alreadyInLevel)
       --end
     end
     extensions.load(careerModules)
+    extensions.disableSerialization(careerModules)
 
     -- prevent these extensions from being unloaded when switching level
     for _, extension in ipairs(extensionFiles) do
@@ -214,6 +172,13 @@ local function toggleCareerModules(active, alreadyInLevel)
 
     onCareerModulesActivated(alreadyInLevel)
     extensions.hook("onCareerModulesActivated", alreadyInLevel)
+    debugModules = {}
+    for _, moduleName in ipairs(careerModules) do
+      if extensions[moduleName].debugName then
+        table.insert(debugModules,extensions[moduleName])
+      end
+    end
+    table.sort(debugModules, function(a,b) return a.debugOrder < b.debugOrder end)
   else
     for _, name in ipairs(careerModules) do
       extensions.unload(name)
@@ -225,7 +190,7 @@ end
 
 local function onUpdate(dtReal, dtSim, dtRaw)
   if not careerActive then return end
-  if not shipping_build then
+  if debugMenuEnabled then
     if debugMenu() then
       return
     end
@@ -243,57 +208,52 @@ local function removeNonTrafficVehicles()
   end
 end
 
+local function initAfterLevelLoad(newSave)
+  gameplay_rawPois.clear()
+  core_recoveryPrompt.setDefaultsForCareer()
+  guihooks.trigger('ClearTasklist')
+  core_gamestate.setGameState("career","career", nil)
+  extensions.hook("onCareerActive", true, newSave)
+end
+
 local function activateCareer(removeVehicles)
   if careerActive then return end
   -- load career
   local saveSlot, savePath = career_saveSystem.getCurrentSaveSlot()
   if not saveSlot then return end
+  extensions.hook("onBeforeCareerActivate")
 
-  if removeVehicles == nil then
-    removeVehicles = true
-  end
-  if core_groundMarkers then core_groundMarkers.setFocus(nil) end
+  if core_groundMarkers then core_groundMarkers.setPath(nil) end
 
   careerActive = true
   log("I", "Loading career from " .. savePath .. "/career/" .. saveFile)
   local careerData = (savePath and jsonReadFile(savePath .. "/career/" .. saveFile)) or {}
+  local newSave = tableIsEmpty(careerData)
   local levelToLoad = careerData.level or levelName
   boughtStarterVehicle = careerData.boughtStarterVehicle
+  organizationInteraction = careerData.organizationInteraction or {}
 
   if not getCurrentLevelIdentifier() or (getCurrentLevelIdentifier() ~= levelToLoad) then
     spawn.preventPlayerSpawning = true
-    freeroam_freeroam.startFreeroam(path.getPathLevelMain(levelToLoad))
-    toggleCareerModules(true)
+    freeroam_freeroam.startFreeroam(path.getPathLevelMain(levelToLoad), nil, false, nil, function()
+      toggleCareerModules(true)
+      initAfterLevelLoad(newSave)
+      server.fadeoutLoadingScreen()
+    end)
   else
     if removeVehicles then
-      --core_vehicles.removeAll()
-    else
-      --removeNonTrafficVehicles()
+      core_vehicles.removeAll()
     end
     toggleCareerModules(true, true)
+    M.closeAllMenus()
     M.onUpdate = onUpdate
-  end
-
-  gameplay_rawPois.clear()
-  core_recoveryPrompt.setDefaultsForCareer()
-  extensions.hook("onCareerActive", true)
-  guihooks.trigger('ClearTasklist')
-  core_gamestate.setGameState("career","career", nil)
-
-  career_modules_playerDriving.ensureTraffic = true
-
-  if career_modules_linearTutorial.isLinearTutorialActive() then
-    M.setAutosaveEnabled(false)
-    print("Disabling autosave because we are in tutorial!")
+    initAfterLevelLoad(newSave)
   end
 end
 
 local function deactivateCareer(saveCareer)
   if not careerActive then return end
   M.onUpdate = nil
-  if saveCareer then
-    --career_saveSystem.saveCurrent(true) -- not sure if we want to allow saving here
-  end
   careerActive = false
   toggleCareerModules(false)
   blockInputActions(false)
@@ -313,19 +273,14 @@ local function isActive()
   return careerActive
 end
 
-local function enableTutorial(enabled)
-  if enabled then
-    log("I","","Tutorial for career enabled.")
-  end
-  M.tutorialEnabled = enabled or false
-end
-
-local function createOrLoadCareerAndStart(name, specificAutosave)
-  --M.tutorialEnabled = string.find(string.lower(name), "tutorial") and true or false
-  --M.vehSelectEnabled = string.find(string.lower(name), "vehselect") and true or false
+local function createOrLoadCareerAndStart(name, specificAutosave, tutorial)
   log("I","",string.format("Create or Load Career: %s - %s", name, specificAutosave))
   if career_saveSystem.setSaveSlot(name, specificAutosave) then
-    activateCareer()
+    M.tutorialEnabled = tutorial
+    if tutorial then
+      log("I","","Tutorial for career enabled.")
+    end
+    activateCareer(false)
     return true
   end
   return false
@@ -340,8 +295,15 @@ local function onSaveCurrentSaveSlot(currentSavePath)
 
   data.level = getCurrentLevelIdentifier()
   data.boughtStarterVehicle = boughtStarterVehicle
+  data.debugModuleOpenStates = {}
+  data.organizationInteraction = organizationInteraction or {}
+  for _, module in ipairs(debugModules) do
+    if module.getDebugMenuActive then
+      data.debugModuleOpenStates[module.___extensionName___] = module.getDebugMenuActive()
+    end
+  end
 
-  jsonWriteFile(filePath, data, true)
+  career_saveSystem.jsonWriteFileSafe(filePath, data, true)
 end
 
 local function onBeforeSetSaveSlot(currentSavePath, currentSaveSlot)
@@ -353,6 +315,7 @@ end
 local function onClientStartMission(levelPath)
   if careerActive then
     M.onUpdate = onUpdate
+    gameplay_rawPois.clear()
     setupCareerActionsAndUnpause()
     core_gamestate.setGameState("career","career", nil)
   end
@@ -385,7 +348,7 @@ local function formatSaveSlotForUi(saveSlot)
   local data = {}
   data.id = saveSlot
 
-  local autosavePath = career_saveSystem.getSaveRootDirectory() .. saveSlot .. "/autosave1"
+  local autosavePath = career_saveSystem.getAutosave(career_saveSystem.getSaveRootDirectory() .. saveSlot)
   local infoData = jsonReadFile(autosavePath .. "/info.json")
 
   local currentSaveSlot, _ = career_saveSystem.getCurrentSaveSlot()
@@ -395,30 +358,61 @@ local function formatSaveSlotForUi(saveSlot)
     data.tutorialActive = career_modules_linearTutorial.isLinearTutorialActive()
     data.money = career_modules_playerAttributes.getAttribute("money")
     data.beamXP = career_modules_playerAttributes.getAttribute("beamXP")
-    data.bonusStars = career_modules_playerAttributes.getAttribute("bonusStars")
+    data.vouchers = career_modules_playerAttributes.getAttribute("vouchers")
+    data.insuranceScore = {value = career_modules_insurance_insurance.getDriverScore()}
     data.beamXP.level, data.beamXP.curLvlProgress, data.beamXP.neededForNext = getBeamXPLevel(data.beamXP.value)
+    data.branches = {}
 
-    for bId, br in pairs(career_branches.getBranches()) do
-      local attKey = br.attributeKey
-      data[attKey] = deepcopy(career_modules_playerAttributes.getAttribute(attKey) or {value=br.defaultValue or 0})
-      data[attKey].level, data[attKey].curLvlProgress, data[attKey].neededForNext = career_branches.calcBranchLevelFromValue(data[attKey].value, bId)
+    for _, br in ipairs(career_branches.getSortedBranches()) do
+      if br.isBranch and br.parentDomain == "apm" then
+        local attKey = br.attributeKey
+        local brData = deepcopy(career_modules_playerAttributes.getAttribute(attKey) or {value=br.defaultValue or 0})
+        brData.level, brData.curLvlProgress, brData.neededForNext = career_branches.calcBranchLevelFromValue(brData.value, br.id)
+        brData.id = attKey
+        brData.icon = br.icon
+        brData.color = br.color
+        brData.label = br.name
+        brData.levelLabel = {txt='ui.career.lvlLabel', context={lvl=brData.level}}
+        table.insert(data.branches, brData)
+        -- remove this assigment once UI side works with the new branch list
+        data[attKey] = brData
+      end
     end
     data.currentVehicle = career_modules_inventory.getCurrentVehicle() and career_modules_inventory.getVehicles()[career_modules_inventory.getCurrentVehicle()]
+    data.vehicleCount = #career_modules_inventory.getVehicles()
   else
-
     -- save slot from file
     local attData = jsonReadFile(autosavePath .. "/career/playerAttributes.json")
     local inventoryData = jsonReadFile(autosavePath .. "/career/inventory.json")
+    local insuranceData = jsonReadFile(autosavePath .. "/career/insurance.json")
 
     if attData then
       data.money = deepcopy(attData.money) or {value=0}
       data.beamXP = deepcopy(attData.beamXP) or {value=0}
-      data.bonusStars = deepcopy(attData.bonusStars) or {value=0}
+      data.vouchers = deepcopy(attData.vouchers) or {value=0}
+      if insuranceData and insuranceData.plDriverScore then
+        data.insuranceScore = {value = insuranceData.plDriverScore}
+      else
+        data.insuranceScore = {value = 0}
+      end
       data.beamXP.level, data.beamXP.curLvlProgress, data.beamXP.neededForNext = getBeamXPLevel(data.beamXP.value)
-      for bId, br in pairs(career_branches.getBranches()) do
-        local attKey = br.attributeKey
-        data[attKey] = deepcopy(attData[attKey] or {value=br.defaultValue or 0})
-        data[attKey].level, data[attKey].curLvlProgress, data[attKey].neededForNext = career_branches.calcBranchLevelFromValue(data[attKey].value, bId)
+      data.branches = {}
+      for _, br in ipairs(career_branches.getSortedBranches()) do
+        if br.isBranch and br.parentDomain == "apm" then
+          local attKey = br.attributeKey
+          local newAttKey = career_branches.newAttributeNamesToOldNames[attKey] or attKey
+          local brData = deepcopy(attData[newAttKey] or attData[attKey] or {value=br.defaultValue or 0})
+          brData.level, brData.curLvlProgress, brData.neededForNext = career_branches.calcBranchLevelFromValue(brData.value, br.id)
+          brData.id = attKey
+          brData.icon = br.icon
+          brData.color = br.color
+          brData.label = br.name
+          brData.levelLabel = {txt='ui.career.lvlLabel', context={lvl=brData.level}}
+
+          table.insert(data.branches, brData)
+          -- remove this assigment once UI side works with the new branch list
+          data[attKey] = brData
+        end
       end
     end
 
@@ -427,11 +421,15 @@ local function formatSaveSlotForUi(saveSlot)
       if vehicleData then
         data.currentVehicle = vehicleData.niceName
       end
+
     end
+    local files = FS:findFiles(autosavePath .. "/career/vehicles/", '*.json', 0, false, false)
+    data.vehicleCount = #files
   end
 
   -- add the infoData raw
   if infoData and infoData.version then
+    infoData.incompatibleVersion = career_saveSystem.getBackwardsCompVersion() > infoData.version
     infoData.outdatedVersion = career_saveSystem.getSaveSystemVersion() > infoData.version
     tableMerge(data, infoData)
   end
@@ -501,20 +499,6 @@ local function sendCurrentSaveSlotName()
   guihooks.trigger("currentSaveSlotName", {saveSlot = career_saveSystem.getCurrentSaveSlot()})
 end
 
-local function onVehicleSaveFinished()
-  if closeAfterSaving then
-    shutdown(0)
-  end
-end
-
-local function onPreWindowClose()
-  --[[if careerActive then
-    Engine.cancelShutdown()
-    closeAfterSaving = true
-    career_saveSystem.saveCurrent()
-  end]]
-end
-
 local function onAnyMissionChanged(state, mission)
   if not careerActive then return end
   if mission then
@@ -526,31 +510,24 @@ local function onAnyMissionChanged(state, mission)
   end
 end
 
-local physicsPausedFromOutside = false
-local function onSimTimePauseCalled(paused)
-  physicsPausedFromOutside = paused
-end
-
-local function requestPause(pause)
-  if careerActive then
-    if
-      pause == simTimeAuthority.getPause()
-      or physicsPausedFromOutside
-      then return end
-    simTimeAuthority.pause(pause)
-    physicsPausedFromOutside = false
-  end
-end
-
 local function hasBoughtStarterVehicle()
   return boughtStarterVehicle
+end
+
+local function hasInteractedWithOrganization(id)
+  return organizationInteraction[id]
+end
+
+local function interactWithOrganization(id)
+  --print("Interact with: " .. dumps(id))
+  organizationInteraction[id] = true
 end
 
 local function onVehicleAddedToInventory(data)
   -- if data.vehicleInfo is present, then the vehicle was bought
   if not boughtStarterVehicle and data.vehicleInfo then
     boughtStarterVehicle = true
-    career_modules_vehicleShopping.generateVehicleList()
+    career_modules_vehicleShopping.updateVehicleList(true)
   end
 end
 
@@ -569,18 +546,38 @@ end
 local function getAdditionalMenuButtons()
   local ret = {}
   --table.insert(ret, {label = "Test", luaFun = "print('Test!')"})
-  if career_modules_delivery_deliveryManager.isDeliveryModeActive() then
-    table.insert(ret, {label = "My Cargo", luaFun = "career_modules_delivery_deliveryManager.enterCargoOverviewScreen(nil, nil)"})
+  if career_modules_delivery_general.isDeliveryModeActive() then
+    table.insert(ret, {label = "Map (My Cargo)", luaFun = "career_modules_delivery_cargoScreen.enterMyCargo()"})
+  else
+    table.insert(ret, {label = "Map", luaFun = "freeroam_bigMapMode.enterBigMap({instant=true})"})
+  end
+  if not career_modules_linearTutorial.isLinearTutorialActive() and M.hasBoughtStarterVehicle() then
+    table.insert(ret, {label = "Progress", luaFun = "guihooks.trigger('ChangeState', {state = 'domainSelection'})", showIndicator = career_modules_milestones_milestones.unclaimedMilestonesCount() > 0})
+  end
+  if career_modules_vehiclePerformance.isTestInProgress() then
+    table.insert(ret, {label = "Cancel Certification", luaFun = "career_modules_vehiclePerformance.cancelTest()", showIndicator = true})
+  end
+
+  if career_modules_testDrive.isActive() then
+    table.insert(ret, {label = "Cancel Test Drive", luaFun = "career_modules_testDrive.stop()", showIndicator = true})
   end
   return ret
 end
 
+local function setDebugMenuEnabled(enabled)
+  debugMenuEnabled = enabled
+end
+
 local function onExtensionLoaded()
-	log('W', "mpCareer", "--------------------------------------MP CAREER")
+	log('W', 'CareerMP', 'careerMP LOADED!')
+end
+
+local function onExtensionUnloaded()
+  log('W', 'CareerMP', 'careerMP UNLOADED!')
 end
 
 M.getAdditionalMenuButtons = getAdditionalMenuButtons
-M.enableTutorial = enableTutorial
+
 M.createOrLoadCareerAndStart = createOrLoadCareerAndStart
 M.activateCareer = activateCareer
 M.deactivateCareer = deactivateCareer
@@ -589,11 +586,14 @@ M.isActive = isActive
 M.sendAllCareerSaveSlotsData = sendAllCareerSaveSlotsData
 M.sendCurrentSaveSlotData = sendCurrentSaveSlotData
 M.getAutosavesForSaveSlot = getAutosavesForSaveSlot
-M.requestPause = requestPause
 M.hasBoughtStarterVehicle = hasBoughtStarterVehicle
+M.hasInteractedWithOrganization = hasInteractedWithOrganization
+M.interactWithOrganization = interactWithOrganization
 M.closeAllMenus = closeAllMenus
 M.isAutosaveEnabled = isAutosaveEnabled
 M.setAutosaveEnabled = setAutosaveEnabled
+M.getBeamXPLevel = getBeamXPLevel
+M.setDebugMenuEnabled = setDebugMenuEnabled
 
 M.onSaveCurrentSaveSlot = onSaveCurrentSaveSlot
 M.onBeforeSetSaveSlot = onBeforeSetSaveSlot
@@ -601,15 +601,16 @@ M.onSerialize = onSerialize
 M.onDeserialized = onDeserialized
 M.onClientStartMission = onClientStartMission
 M.onClientEndMission = onClientEndMission
-M.onExtensionLoaded = onExtensionLoaded
 M.onAnyMissionChanged = onAnyMissionChanged
-M.onSimTimePauseCalled = onSimTimePauseCalled
-M.onVehicleSaveFinished = onVehicleSaveFinished
-M.onPreWindowClose = onPreWindowClose
 M.onVehicleAddedToInventory = onVehicleAddedToInventory
+M.onCameraModeChanged = onCameraModeChanged
+M.onGlobalCameraSet = onGlobalCameraSet
 
 M.sendCurrentSaveSlotName = sendCurrentSaveSlotName
 
-M.onInit = function() setExtensionUnloadMode(M, "manual") end
+M.onExtensionLoaded = onExtensionLoaded
+M.onExtensionUnloaded = onExtensionUnloaded
+
+M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
 return M
