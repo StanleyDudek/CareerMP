@@ -3,6 +3,9 @@
 local M = {}
 
 --Setup
+local nickname = MPConfig.getNickname()
+print("nickname")
+dump(nickname)
 local careerMPActive = false --one-way switch, set true when we patch the topBar items after everything is loaded
 local syncRequested = false --one-way switch, set true when we have sent the sync request to the server
 
@@ -870,7 +873,7 @@ end
 local function onGameStateUpdate(state) --called by the base game any time the gamestate changes
 	checkUIApps(state) --whenever a state changes, make sure multiplayer UI apps are present in the UI app layout
 	if state.state == "career" then --if the state is changed to career
-		TriggerServerEvent("careerSyncRequested", "") --tell the server we have entered career gamestate
+		
 	end
 end
 
@@ -912,17 +915,14 @@ end
 --Patch BeamMP behavior and topBar
 
 local function patchTopBar() --function to remove entries in the top menu bar because other methods of limiting these items fail
-	if not careerMPActive then --if we havn't patched the top bar yet and so we haven't marked careerMPActive true
-		local entries = ui_topBar.getEntries() --get the topBar entries, remove the ones we know we don't want
-		ui_topBar.removeEntry("environment")
-		ui_topBar.removeEntry("mods")
-		ui_topBar.removeEntry("vehicleconfig")
-		ui_topBar.removeEntry("vehicles")
-		entries = ui_topBar.getEntries() --making sure this reflects our removals
-		ui_topBar.updateEntries(entries) --update the entries
-		ui_topBar.updateVisibleItems() --update the topBar items' visibilities
-		careerMPActive = true --mark careerMPActive true
-	end
+	local entries = ui_topBar.getEntries() --get the topBar entries, remove the ones we know we don't want
+	ui_topBar.removeEntry("environment")
+	ui_topBar.removeEntry("mods")
+	ui_topBar.removeEntry("vehicleconfig")
+	ui_topBar.removeEntry("vehicles")
+	entries = ui_topBar.getEntries() --making sure this reflects our removals
+	ui_topBar.updateEntries(entries) --update the entries
+	ui_topBar.updateVisibleItems() --update the topBar items' visibilities
 end
 
 local function modifiedGetDriverData(veh) --copy of MP's modified getDriverData function, we need this unchanged when patching MP's multiplayer_multiplayer.onUpdate
@@ -976,7 +976,18 @@ end
 
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
 	if state == 2 then --final state
-
+		nickname = MPConfig.getNickname()
+		print("nickname")
+		dump(nickname)
+		if not syncRequested then --if the client has not requested a sync
+			if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
+				career_career.createOrLoadCareerAndStart(nickname, false, false) --trigger career to start
+				careerMPActive = true --mark careerMPActive true
+			end
+			TriggerServerEvent("prefabSyncRequested", "") --request a prefab sync from the server
+			TriggerServerEvent("careerSyncRequested", "") --request a career sync from the server
+			syncRequested = true --mark syncRequested true
+		end
 	end
 end
 
@@ -997,11 +1008,6 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 		if stateToUpdate then --if we need to handle a new ui app layout
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
-		end
-		if not syncRequested then --if the client has not requested a sync
-			career_career.createOrLoadCareerAndStart(MPConfig.getNickname(), false, false) --trigger career to start
-			TriggerServerEvent("prefabSyncRequested", "") --request a prefab sync from the server
-			syncRequested = true
 		end
 	end
 end
