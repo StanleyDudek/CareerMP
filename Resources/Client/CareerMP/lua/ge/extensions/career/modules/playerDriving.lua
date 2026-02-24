@@ -74,7 +74,7 @@ local function setupTraffic(forceSetup)
 
     -- this will spawn vehicles near the center of the map (player vehicle not ready yet)
     -- if this would wait until player vehicle active, then the loading screen would fade out early...
-    gameplay_parking.setupVehicles(restrict and testTrafficAmounts.parkedCars or parkedAmount)
+    --gameplay_parking.setupVehicles(restrict and testTrafficAmounts.parkedCars or parkedAmount)
     gameplay_traffic.setupTraffic(restrict and testTrafficAmounts.traffic + extraAmount or amount + extraAmount, 0, {policeAmount = policeAmount, simpleVehs = true, autoLoadFromFile = true})
     setTrafficVars()
 
