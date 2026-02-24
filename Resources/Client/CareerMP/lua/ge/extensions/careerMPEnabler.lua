@@ -4,8 +4,7 @@ local M = {}
 
 --Setup
 local nickname = MPConfig.getNickname()
-print("nickname")
-dump(nickname)
+
 local careerMPActive = false --one-way switch, set true when we patch the topBar items after everything is loaded
 local syncRequested = false --one-way switch, set true when we have sent the sync request to the server
 
@@ -977,8 +976,6 @@ end
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
 	if state == 2 then --final state
 		nickname = MPConfig.getNickname()
-		print("nickname")
-		dump(nickname)
 		if not syncRequested then --if the client has not requested a sync
 			if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
 				career_career.createOrLoadCareerAndStart(nickname, false, false) --trigger career to start
