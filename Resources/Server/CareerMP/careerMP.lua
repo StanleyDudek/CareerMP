@@ -11,14 +11,7 @@ local trapNames = {
     [4] = "Beach",
     [5] = "Lighthouse",
     [6] = "Island Port Northbound",
-    [7] = "Island Port Southbound",
-    [8] = "South Belasco",
-    [9] = "Belasco City Hospital",
-    [10] = "East Belasco",
-    [11] = "Downtown Belasco",
-    [12] = "Platin Gate Bridge South",
-    [13] = "Platin Gate Bridge South",
-    [14] = "Platin Gate Bridge North",
+    [7] = "Island Port Southbound"
 }
 
 function onInit()
@@ -187,3 +180,4 @@ end
 function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
 end
+
