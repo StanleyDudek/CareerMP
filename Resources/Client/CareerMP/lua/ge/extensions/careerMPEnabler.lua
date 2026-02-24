@@ -45,6 +45,27 @@ local missionAppLayoutDirectory = "settings/ui_apps/originalLayouts/mission/"
 local userDefaultAppLayoutDirectory = "settings/ui_apps/layouts/default/"
 local userMissionAppLayoutDirectory = "settings/ui_apps/layouts/mission/"
 
+--Default Settings Values
+local userTrafficSettings = {}
+local freeRoamMPTrafficSettings = {
+	trafficAmount = 2,
+	trafficExtraAmount = 0,
+	trafficExtraVehicles = false,
+	trafficParkedAmount = 0,
+	trafficParkedVehicles = false,
+	trafficLoadForFreeroam = false,
+	trafficSmartSelections = false,
+	trafficSimpleVehicles = true,
+	trafficAllowMods = true,
+	trafficEnableSwitching = false,
+	trafficMinimap = true
+}
+
+local userGameplaySettings = {}
+local freeRoamMPGameplaySettings = {
+	simplifyRemoteVehicles = false
+}
+
 --UI Layouts
 local stateToUpdate --a variable to hold a state name to look up which UI app layout to inject MP UI apps into
 
@@ -581,6 +602,36 @@ end
 
 --Traffic
 
+local function getUserGameplaySettings()
+	userGameplaySettings.simplifyRemoteVehicles = settings.getValue("simplifyRemoteVehicles")
+end
+
+local function setGameplaySettings(gameplaySettings)
+	for setting, value in pairs(gameplaySettings) do
+		settings.setValue(setting, value)
+	end
+end
+
+local function getUserTrafficSettings()
+	userTrafficSettings.trafficAmount = settings.getValue('trafficAmount')
+	userTrafficSettings.trafficExtraAmount = settings.getValue('trafficExtraAmount')
+	userTrafficSettings.trafficExtraVehicles = settings.getValue('trafficExtraVehicles')
+	userTrafficSettings.trafficParkedAmount = settings.getValue('trafficParkedAmount')
+	userTrafficSettings.trafficParkedVehicles = settings.getValue('trafficParkedVehicles')
+	userTrafficSettings.trafficLoadForFreeroam = settings.getValue('trafficLoadForFreeroam')
+	userTrafficSettings.trafficSmartSelections = settings.getValue('trafficSmartSelections')
+	userTrafficSettings.trafficSimpleVehicles = settings.getValue('trafficSimpleVehicles')
+	userTrafficSettings.trafficAllowMods = settings.getValue('trafficAllowMods')
+	userTrafficSettings.trafficEnableSwitching = settings.getValue('trafficEnableSwitching')
+	userTrafficSettings.trafficMinimap = settings.getValue('trafficMinimap')
+end
+
+local function setTrafficSettings(trafficSettings)
+	for setting, value in pairs(trafficSettings) do
+		settings.setValue(setting, value)
+	end
+end
+
 local function onSpeedTrapTriggered(speedTrapData, playerSpeed, overSpeed) --called by base game when a player drives through a speed trap at sufficiently high speed, we collect the data and sent it to the server, which will broadcast the event to remote clients as a notification
     if MPVehicleGE.isOwn(speedTrapData.subjectID) then
         local veh = be:getObjectByID(speedTrapData.subjectID)
@@ -1009,9 +1060,58 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	end
 end
 
+local function onPreRender()
+	if worldReadyState == 2 then
+		local vehicles = MPVehicleGE.getVehicles()
+		local activeVehicle = be:getPlayerVehicle(0)
+		local activeVehiclePos = activeVehicle and vec3(activeVehicle:getPosition()) or nil
+		local activeVehicleID = activeVehicle and activeVehicle:getID() or nil
+		local cameraPos = vec3(core_camera.getPosition())
+		if activeVehicle then
+			if not commands.isFreeCamera() then
+				cameraPos = activeVehiclePos
+			end
+			for _, vehicle in pairs(vehicles) do
+				local owner = vehicle:getOwner()
+				if vehicle.isLocal or not owner then
+					goto skip_vehicle
+				end
+				local gameVehicleID = vehicle.gameVehicleID
+				local fadeVehicle = be:getObjectByID(gameVehicleID)
+				vehicle.position = vec3(be:getObjectOOBBCenterXYZ(gameVehicleID))
+				local fadePos = Point3F(vehicle.position.x, vehicle.position.y, vehicle.position.z)
+				local fadeFloatDist = (cameraPos or vec3()):distance(fadePos)
+				if fadeVehicle then
+					if activeVehicleID == gameVehicleID then
+						fadeVehicle:setMeshAlpha(1, "", false)
+					else
+						fadeVehicle:setMeshAlpha(1 - clamp(linearScale(fadeFloatDist, 5, 0, 0, 1), 0, 1), "", false)
+					end
+				end
+				:: skip_vehicle ::
+			end
+		end
+	end
+end
+
+local function onBeamNGTrigger(data)
+	if data.triggerName:find("ZonePhys") and MPVehicleGE.isOwn(data.subjectID) then
+		if data.event == "exit" then
+			be:setDynamicCollisionEnabled(true)
+		elseif data.event == "enter" then
+			be:setDynamicCollisionEnabled(false)
+		end
+		Engine.Audio.playOnce('AudioGui', "event:UI_Checkpoint", {volume = 2, unique = true})
+	end
+end
+
 --Loading / Unloading
 
 local function onExtensionLoaded() --called by the base game when the extension loads, good place to setup MP event handlers
+	getUserTrafficSettings()
+	setTrafficSettings(freeRoamMPTrafficSettings)
+	getUserGameplaySettings()
+	setGameplaySettings(freeRoamMPGameplaySettings)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
 	AddEventHandler("rxUpdateWinnerLight", rxUpdateWinnerLight)
 	AddEventHandler("rxClearAll", rxClearAll)
@@ -1019,16 +1119,21 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	AddEventHandler("rxCareerSync", rxCareerSync)
 	AddEventHandler("rxCareerVehSync", rxCareerVehSync)
 	AddEventHandler("rxTrafficSignalTimer", rxTrafficSignalTimer)
-	career_career = extensions.career_careerMP --replace stock career lua with my custom careerMP lua
+	career_career = extensions.career_careerMP --replace stock career lua with my modified careerMP lua
 	log('W', 'careerMP', 'CareerMP Enabler LOADED!')
 end
 
 local function onExtensionUnloaded()
 	unPatchBeamMP() --better than nothing
+	setTrafficSettings(userTrafficSettings)
+	setGameplaySettings(userGameplaySettings)
 	log('W', 'careerMP', 'CareerMP Enabler UNLOADED!')
 end
 
 --Access
+
+M.onBeamNGTrigger = onBeamNGTrigger
+
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
 M.onVehicleReady = onVehicleReady
@@ -1050,6 +1155,7 @@ M.onClientPostStartMission = onClientPostStartMission
 
 M.onWorldReadyState = onWorldReadyState
 M.onUpdate = onUpdate
+M.onPreRender = onPreRender
 
 M.onExtensionLoaded = onExtensionLoaded
 M.onExtensionUnloaded = onExtensionUnloaded
