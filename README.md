@@ -17,7 +17,7 @@ This is basically the same as single player career mode, but in addition to the 
 - Forced simple_traffic models are used, in freeroaming career, players spawn 2 road traffic vehicles each; missions, challenges, scenarios add additional unmetered traffic
 - Traffic Signals are synced, for a congruent experience for all players
 - Red light camera / speed trap data broadcasts
-- Drag scoreboard syncing
+- Dragrace scoreboard display and winner light syncing
 - Missions, challenges, scenarios prefabs (track layouts, barriers, hay bales, barrels, arrow signs, gates, unique structures, et cetera) are synced on the fly so you can observe others engage in these activities and have to find creative ways around should they block your path
 - MP UI app injection into missions, challenges, scenarios, making sure you can see chat or quit the session from most points of play
 - Syncing the active states (shown or hidden) of vehicles is a critical part of behind the scenes functionality
@@ -41,7 +41,7 @@ Updates to any of these could possibly render CareerMP non-functional without no
 ## Notes
 CareerMP provides no player moderation itself, and should not conflict with the server moderation plugin of your choice, provided all players can be allowed to spawn at least 100 vehicles.
 
-Career uses your BeamMP username to create a save file, you can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player online, you can make sure the save name matches your BeamMP username before.
+CareerMP uses your BeamMP username to create a save file, you can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username before joining.
 
 Currently everyone’s economy will be local to their save, that is, you cannot currently change money or vehicle, but I hope to make this available, I believe it’s quite possible.
 
