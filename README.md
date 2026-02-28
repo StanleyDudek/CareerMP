@@ -7,7 +7,7 @@ Enabling [BeamNG.drive](https://beamng.com/game/)'s Career Mode in [BeamMP](http
 ## Overview
 The goal of CareerMP is not to change the base game career mode or create my own unique multiplayer career mode like others have done before to good effect, but to provide whatever handling is necessary on the BeamMP client and server to allow the base game career mode to function as multiplayer, so you can play career mode with friends in the same space.
 
-This is basically the same as single player career mode, but in addition to the normal traffic, there will be real players doing their own careers as well.
+This is basically the same as single player career mode, and all that means, but in addition to the normal traffic, there will be real players doing their own careers as well.
 
 ## Highlights / Features
 - Support for all base-game career features at parity with single player career mode
@@ -37,8 +37,11 @@ Updates to any of these could possibly render CareerMP non-functional without no
 ## Installation
 1. Download the latest [release](https://github.com/StanleyDudek/CareerMP/releases/tag/v0.0.1) and unpack the contents to the root directory of your BeamMP server directory
 2. Set `MaxCars = 100` or greater in your `ServerConfig.toml`
+3. Set `Map = "/levels/west_coast_usa/info.json"` in your `ServerConfig.toml`
 
 ## Notes
+As CareerMP relies on the base game's career mode, it currently will only function on the West Coast, USA map.
+
 CareerMP provides no player moderation itself, and should not conflict with the server moderation plugin of your choice, provided all players can be allowed to spawn at least 100 vehicles.
 
 CareerMP uses your BeamMP username to create a save file, you can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username before joining.
