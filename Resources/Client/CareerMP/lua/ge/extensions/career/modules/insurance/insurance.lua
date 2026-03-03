@@ -520,7 +520,14 @@ local function startRepairInstant(vehInfo, callback, skipSound)
   if not skipSound then
     Engine.Audio.playOnce('AudioGui', 'event:>UI>Missions>Vehicle_Recover')
   end
-
+  local veh = be:getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
+  if veh then
+			if gameplay_walk.isWalking() then --if they're walking
+				gameplay_walk.getInVehicle(veh) --enter the vehicle
+			else --if they're in a vehicle
+				be:enterVehicle(0, veh) --switch to the target vehicle
+			end
+  end
   if career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id) then -- vehicle is currently spawned
     career_modules_inventory.spawnVehicle(vehInfo.id, 2, callback and
     function()
