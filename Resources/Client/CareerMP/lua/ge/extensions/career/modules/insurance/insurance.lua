@@ -479,6 +479,7 @@ local function onAfterVehicleRepaired(vehInfo)
   end
 
   career_saveSystem.saveCurrent({vehInfo.id})
+  extensions.hook("onAfterVehicleRepaired", career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
 end
 
 local startRepairVehInfo
@@ -491,6 +492,7 @@ local function startRepairDelayed(vehInfo, repairTime)
     end
     career_modules_inventory.removeVehicleObject(vehInfo.id)
   end
+  extensions.hook("onVehicleRepairDelayed", career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
   career_modules_inventory.delayVehicleAccess(vehInfo.id, repairTime, "repair")
   onAfterVehicleRepaired(vehInfo)
 end
@@ -518,7 +520,14 @@ local function startRepairInstant(vehInfo, callback, skipSound)
   if not skipSound then
     Engine.Audio.playOnce('AudioGui', 'event:>UI>Missions>Vehicle_Recover')
   end
-
+  local veh = be:getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
+  if veh then
+			if gameplay_walk.isWalking() then --if they're walking
+				gameplay_walk.getInVehicle(veh) --enter the vehicle
+			else --if they're in a vehicle
+				be:enterVehicle(0, veh) --switch to the target vehicle
+			end
+  end
   if career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id) then -- vehicle is currently spawned
     career_modules_inventory.spawnVehicle(vehInfo.id, 2, callback and
     function()
@@ -527,6 +536,7 @@ local function startRepairInstant(vehInfo, callback, skipSound)
     end)
     if callback then return end
   end
+  extensions.hook("onVehicleRepairInstant", career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
   onAfterVehicleRepaired(vehInfo)
 end
 
