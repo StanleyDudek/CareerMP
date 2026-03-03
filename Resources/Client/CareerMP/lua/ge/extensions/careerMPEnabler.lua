@@ -955,7 +955,7 @@ local function onPartShoppingStarted(targetVehicleID)
 end
 
 local function onRepairInGarage(invVehId, targetVehicleID)
-	computerMenuHandler(targetVehicleID)
+	--computerMenuHandler(targetVehicleID)
 end
 
 local function onCareerTuningStarted(targetVehicleID)
