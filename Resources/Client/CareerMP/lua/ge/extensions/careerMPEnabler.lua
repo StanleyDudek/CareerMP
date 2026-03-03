@@ -19,10 +19,10 @@ local originalGetDriverData --a variable that will eventually hold the original 
 local vehicleTooClose = false
 local physicsActive = false
 local physicsComplete = false
-local firstPhysicsTimeout = 0
 local physicsTimeout = 0
-local firstPhysicsTimeoutThreshold = 30
 local physicsTimeoutThreshold = 3
+local firstPhysicsTimeout = 0
+local firstPhysicsTimeoutThreshold = 10
 
 local missionUIToResolve = false
 
@@ -1094,6 +1094,7 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
 		end
+		getClosestVehicle(be:getPlayerVehicleID(0), "careerMPEnabler.callback")
 		if vehicleTooClose and not physicsComplete then
 			physicsTimeout = 0
 			local vehicles = MPVehicleGE.getVehicles()
@@ -1134,7 +1135,7 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 		end
 		if physicsActive then
 			physicsTimeout = physicsTimeout + dtReal
-			if physicsTimeout >= physicsTimeoutThreshold and not physicsComplete then
+			if physicsTimeout >= physicsTimeoutThreshold and not physicsComplete and not vehicleTooClose then
 				be:setDynamicCollisionEnabled(true)
 				physicsComplete = true
 				vehicleTooClose = false
@@ -1149,23 +1150,29 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 				end
 			end
 		end
-		getClosestVehicle(be:getPlayerVehicleID(0), "careerMPEnabler.callback")
 	end
 end
 
 local function onBeamNGTrigger(data)
 	if MPVehicleGE.isOwn(data.subjectID) then
 		if data.triggerName:find("Phys") then
-			if data.event == "enter" then
-				be:setDynamicCollisionEnabled(false)
-				physicsActive = false
-				physicsComplete = false
-			end
-			if data.event == "exit" then
-				if not physicsActive then
-					physicsActive = true
+			if data.subjectID == be:getPlayerVehicleID(0) then
+				if data.event == "enter" then
+					be:setDynamicCollisionEnabled(false)
+					physicsActive = false
 					physicsComplete = false
-					physicsTimeout = 0
+				end
+				if data.event == "tick" then
+					be:setDynamicCollisionEnabled(false)
+					physicsActive = false
+					physicsComplete = false
+				end
+				if data.event == "exit" then
+					if not physicsActive then
+						physicsActive = true
+						physicsComplete = false
+						physicsTimeout = 0
+					end
 				end
 			end
 		end
