@@ -20,9 +20,9 @@ local vehicleTooClose = false
 local physicsActive = false
 local physicsComplete = false
 local physicsTimeout = 0
-local physicsTimeoutThreshold = 3
+local physicsTimeoutThreshold = 1
 local firstPhysicsTimeout = 0
-local firstPhysicsTimeoutThreshold = 10
+local firstPhysicsTimeoutThreshold = 5
 
 local missionUIToResolve = false
 
@@ -1074,9 +1074,18 @@ local function onClientPostStartMission(levelPath) --called by base game once th
 	patchTopBar() --patch the top bar to remove freeroam menu items
 end
 
+local function getObjectRadius(id)
+    local x, y, z = be:getObjectOOBBHalfExtentsXYZ(id)
+    return math.sqrt(x * x + y * y + z * z)
+end
+
 local function callback(id, distance)
-    if id ~= be:getPlayerVehicleID(0) then
-        vehicleTooClose = distance < 10
+    local playerID = be:getPlayerVehicleID(0)
+    if id ~= playerID then
+        local safetyMargin = 1
+        local playerRadius = getObjectRadius(playerID)
+        local otherRadius = getObjectRadius(id)
+        vehicleTooClose = distance < (playerRadius + otherRadius + safetyMargin)
     end
 end
 
@@ -1094,38 +1103,25 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
 		end
-		getClosestVehicle(be:getPlayerVehicleID(0), "careerMPEnabler.callback")
+		local playerID = be:getPlayerVehicleID(0)
+		local vehicles = MPVehicleGE.getVehicles()
+		local playerVehicle = be:getObjectByID(playerID)
+		local playerPos = playerVehicle and vec3(playerVehicle:getPosition()) or vec3()
 		if vehicleTooClose and not physicsComplete then
 			physicsTimeout = 0
-			local vehicles = MPVehicleGE.getVehicles()
-            local activeVehicle = be:getPlayerVehicle(0)
-            local activeVehiclePos = activeVehicle and vec3(activeVehicle:getPosition()) or nil
-            local activeVehicleID = activeVehicle and activeVehicle:getID() or nil
-            local cameraPos = vec3(core_camera.getPosition())
-            if activeVehicle then
-                if not commands.isFreeCamera() then
-                    cameraPos = activeVehiclePos
-                end
-                for _, vehicle in pairs(vehicles) do
-                    local owner = vehicle:getOwner()
-                    if vehicle.isLocal or not owner then
-                        goto skip_vehicle
-                    end
-                    local gameVehicleID = vehicle.gameVehicleID
-                    local fadeVehicle = be:getObjectByID(gameVehicleID)
-                    vehicle.position = vec3(be:getObjectOOBBCenterXYZ(gameVehicleID))
-                    local fadePos = Point3F(vehicle.position.x, vehicle.position.y, vehicle.position.z)
-                    local fadeFloatDist = (cameraPos or vec3()):distance(fadePos)
-                    if fadeVehicle then
-                        if activeVehicleID == gameVehicleID then
-                            fadeVehicle:setMeshAlpha(1, "", false)
-                        else
-                            fadeVehicle:setMeshAlpha(1 - clamp(linearScale(fadeFloatDist, 10, 0, 0, 1), 0, 1), "", false)
-                        end
-                    end
-                    :: skip_vehicle ::
-                end
-            end
+			local cameraPos = commands.isFreeCamera() and vec3(core_camera.getPosition()) or playerPos
+			for _, vehicle in pairs(vehicles) do
+				if vehicle.isLocal or not vehicle:getOwner() then
+					goto continue
+				end
+				local obj = be:getObjectByID(vehicle.gameVehicleID)
+				if obj then
+					local fadeDist = cameraPos:distance(vec3(be:getObjectOOBBCenterXYZ(vehicle.gameVehicleID)))
+					local fadeRadius = getObjectRadius(playerID) + getObjectRadius(vehicle.gameVehicleID) + 1
+					obj:setMeshAlpha(playerID == vehicle.gameVehicleID and 1 or 1 - clamp(linearScale(fadeDist, fadeRadius, 0, 0, 1), 0, 1), "", false)
+				end
+				::continue::
+			end
 		end
 		firstPhysicsTimeout = firstPhysicsTimeout + dtReal
 		if firstPhysicsTimeout < firstPhysicsTimeoutThreshold then
@@ -1139,40 +1135,37 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 				be:setDynamicCollisionEnabled(true)
 				physicsComplete = true
 				vehicleTooClose = false
-				local vehicles = MPVehicleGE.getVehicles()
 				for _, vehicle in pairs(vehicles) do
 					if not vehicle.isLocal and vehicle:getOwner() then
 						local obj = be:getObjectByID(vehicle.gameVehicleID)
-						if obj then
-							obj:setMeshAlpha(1, "", false)
-						end
+						if obj then obj:setMeshAlpha(1, "", false) end
 					end
 				end
 			end
 		end
+		getClosestVehicle(playerID, "careerMPEnabler.callback")
 	end
 end
 
 local function onBeamNGTrigger(data)
 	if MPVehicleGE.isOwn(data.subjectID) then
 		if data.triggerName:find("Phys") then
-			if data.subjectID == be:getPlayerVehicleID(0) then
-				if data.event == "enter" then
+			if data.event == "enter" then
+				be:setDynamicCollisionEnabled(false)
+				physicsActive = false
+				physicsComplete = false
+			elseif  data.event == "tick" then
+				local veh = be:getObjectByID(data.subjectID)
+				if veh.JBeam ~= "unicycle" then
 					be:setDynamicCollisionEnabled(false)
 					physicsActive = false
 					physicsComplete = false
 				end
-				if data.event == "tick" then
-					be:setDynamicCollisionEnabled(false)
-					physicsActive = false
+			elseif data.event == "exit" then
+				if not physicsActive then
+					physicsActive = true
 					physicsComplete = false
-				end
-				if data.event == "exit" then
-					if not physicsActive then
-						physicsActive = true
-						physicsComplete = false
-						physicsTimeout = 0
-					end
+					physicsTimeout = 0
 				end
 			end
 		end
