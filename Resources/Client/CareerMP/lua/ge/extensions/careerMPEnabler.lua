@@ -21,8 +21,10 @@ local physicsActive = false
 local physicsComplete = false
 local firstPhysicsTimeout = 0
 local physicsTimeout = 0
-local firstPhysicsTimeoutThreshold = 60
-local physicsTimeoutThreshold = 5
+local firstPhysicsTimeoutThreshold = 30
+local physicsTimeoutThreshold = 3
+
+local missionUIToResolve = false
 
 --Manually setup names of prefabs, from ...\BeamNG.drive\gameplay\
 local prefabNames = {
@@ -929,6 +931,13 @@ local function checkUIApps(state) --this extremely verbose and probably redundan
 end
 
 local function onGameStateUpdate(state) --called by the base game any time the gamestate changes
+	if missionUIToResolve and state.appLayout == "freeroam" then
+		core_gamestate.setGameState("career", "career", nil)
+		missionUIToResolve = false
+	end
+	if not state.appLayout:find("career") then
+		missionUIToResolve = true
+	end
 	checkUIApps(state) --whenever a state changes, make sure multiplayer UI apps are present in the UI app layout
 	if state.state == "career" then --if the state is changed to career
 		
@@ -1087,23 +1096,35 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 		end
 		if vehicleTooClose and not physicsComplete then
 			physicsTimeout = 0
-			local active = be:getPlayerVehicle(0)
-			if active then
-				local camPos = commands.isFreeCamera() and vec3(core_camera.getPosition()) or vec3(active:getPosition())
-				local activeID = active:getID()
-				for _, v in pairs(MPVehicleGE.getVehicles()) do
-					if not v.isLocal and v:getOwner() then
-						local id = v.gameVehicleID
-						local obj = be:getObjectByID(id)
-						if obj then
-							local pos = vec3(be:getObjectOOBBCenterXYZ(id))
-							local d = camPos:distance(Point3F(pos.x, pos.y, pos.z))
-							local a = (id == activeID) and 1 or 1 - clamp(linearScale(d, 10, 0, 0, 1), 0, 1)
-							obj:setMeshAlpha(a, "", false)
-						end
-					end
-				end
-			end
+			local vehicles = MPVehicleGE.getVehicles()
+            local activeVehicle = be:getPlayerVehicle(0)
+            local activeVehiclePos = activeVehicle and vec3(activeVehicle:getPosition()) or nil
+            local activeVehicleID = activeVehicle and activeVehicle:getID() or nil
+            local cameraPos = vec3(core_camera.getPosition())
+            if activeVehicle then
+                if not commands.isFreeCamera() then
+                    cameraPos = activeVehiclePos
+                end
+                for _, vehicle in pairs(vehicles) do
+                    local owner = vehicle:getOwner()
+                    if vehicle.isLocal or not owner then
+                        goto skip_vehicle
+                    end
+                    local gameVehicleID = vehicle.gameVehicleID
+                    local fadeVehicle = be:getObjectByID(gameVehicleID)
+                    vehicle.position = vec3(be:getObjectOOBBCenterXYZ(gameVehicleID))
+                    local fadePos = Point3F(vehicle.position.x, vehicle.position.y, vehicle.position.z)
+                    local fadeFloatDist = (cameraPos or vec3()):distance(fadePos)
+                    if fadeVehicle then
+                        if activeVehicleID == gameVehicleID then
+                            fadeVehicle:setMeshAlpha(1, "", false)
+                        else
+                            fadeVehicle:setMeshAlpha(1 - clamp(linearScale(fadeFloatDist, 10, 0, 0, 1), 0, 1), "", false)
+                        end
+                    end
+                    :: skip_vehicle ::
+                end
+            end
 		end
 		firstPhysicsTimeout = firstPhysicsTimeout + dtReal
 		if firstPhysicsTimeout < firstPhysicsTimeoutThreshold then
@@ -1117,9 +1138,10 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 				be:setDynamicCollisionEnabled(true)
 				physicsComplete = true
 				vehicleTooClose = false
-				for _, v in pairs(MPVehicleGE.getVehicles()) do
-					if not v.isLocal and v:getOwner() then
-						local obj = be:getObjectByID(v.gameVehicleID)
+				local vehicles = MPVehicleGE.getVehicles()
+				for _, vehicle in pairs(vehicles) do
+					if not vehicle.isLocal and vehicle:getOwner() then
+						local obj = be:getObjectByID(vehicle.gameVehicleID)
 						if obj then
 							obj:setMeshAlpha(1, "", false)
 						end
