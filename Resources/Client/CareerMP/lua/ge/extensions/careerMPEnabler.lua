@@ -963,7 +963,7 @@ local function onVehicleRepairDelayed(targetVehicleID)
 end
 
 local function onVehicleRepairInstant(targetVehicleID)
-	computerMenuHandler(targetVehicleID)
+	--computerMenuHandler(targetVehicleID)
 end
 
 local function onAfterVehicleRepaired(targetVehicleID)
