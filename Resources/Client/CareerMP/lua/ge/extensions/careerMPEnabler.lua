@@ -958,6 +958,18 @@ local function onRepairInGarage(invVehId, targetVehicleID)
 	--computerMenuHandler(targetVehicleID)
 end
 
+local function onVehicleRepairDelayed(targetVehicleID)
+	--computerMenuHandler(targetVehicleID)
+end
+
+local function onVehicleRepairInstant(targetVehicleID)
+	computerMenuHandler(targetVehicleID)
+end
+
+local function onAfterVehicleRepaired(targetVehicleID)
+	--computerMenuHandler(targetVehicleID)
+end
+
 local function onCareerTuningStarted(targetVehicleID)
 	computerMenuHandler(targetVehicleID)
 end
@@ -1182,6 +1194,9 @@ M.onCareerTuningStarted = onCareerTuningStarted
 M.onPartShoppingStarted = onPartShoppingStarted
 M.onPerformanceTestStarted = onPerformanceTestStarted
 M.onRepairInGarage = onRepairInGarage
+M.onVehicleRepairDelayed = onVehicleRepairDelayed
+M.onVehicleRepairInstant = onVehicleRepairInstant
+M.onAfterVehicleRepaired = onAfterVehicleRepaired
 M.onVehiclePaintingUiOpened = onVehiclePaintingUiOpened
 
 M.onClientPostStartMission = onClientPostStartMission
