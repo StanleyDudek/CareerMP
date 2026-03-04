@@ -16,14 +16,6 @@ local iterC = 0 --a counter to increment, used to iterate the iterT table
 local originalMPOnUpdate --a variable that will eventually hold the original copy of BeamMP's multiplayer_multiplayer.onUpdate() 
 local originalGetDriverData --a variable that will eventually hold the original copy of BeamMP's modified core_camera.getDriverData()
 
-local vehicleTooClose = false
-local physicsActive = false
-local physicsComplete = false
-local physicsTimeout = 0
-local physicsTimeoutThreshold = 1
-local firstPhysicsTimeout = 0
-local firstPhysicsTimeoutThreshold = 5
-
 local missionUIToResolve = false
 
 --Manually setup names of prefabs, from ...\BeamNG.drive\gameplay\
@@ -1050,9 +1042,7 @@ end
 --Initial Syncs and Updates
 
 local function rxCareerSync(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
-	be:setDynamicCollisionEnabled(false)
-	physicsActive = false
-	physicsComplete = false
+
 end
 
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
@@ -1074,21 +1064,6 @@ local function onClientPostStartMission(levelPath) --called by base game once th
 	patchTopBar() --patch the top bar to remove freeroam menu items
 end
 
-local function getObjectRadius(id)
-    local x, y, z = be:getObjectOOBBHalfExtentsXYZ(id)
-    return math.sqrt(x * x + y * y + z * z)
-end
-
-local function callback(id, distance)
-    local playerID = be:getPlayerVehicleID(0)
-    if id ~= playerID then
-        local safetyMargin = 1
-        local playerRadius = getObjectRadius(playerID)
-        local otherRadius = getObjectRadius(id)
-        vehicleTooClose = distance < (playerRadius + otherRadius + safetyMargin)
-    end
-end
-
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	patchBeamMP() --patch BeamMP's unicycle deletion
 	if worldReadyState == 2 then --if the level is loaded
@@ -1102,72 +1077,6 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 		if stateToUpdate then --if we need to handle a new ui app layout
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
-		end
-		local playerID = be:getPlayerVehicleID(0)
-		local vehicles = MPVehicleGE.getVehicles()
-		local playerVehicle = be:getObjectByID(playerID)
-		local playerPos = playerVehicle and vec3(playerVehicle:getPosition()) or vec3()
-		if vehicleTooClose and not physicsComplete then
-			physicsTimeout = 0
-			local cameraPos = commands.isFreeCamera() and vec3(core_camera.getPosition()) or playerPos
-			for _, vehicle in pairs(vehicles) do
-				if vehicle.isLocal or not vehicle:getOwner() then
-					goto continue
-				end
-				local obj = be:getObjectByID(vehicle.gameVehicleID)
-				if obj then
-					local fadeDist = cameraPos:distance(vec3(be:getObjectOOBBCenterXYZ(vehicle.gameVehicleID)))
-					local fadeRadius = getObjectRadius(playerID) + getObjectRadius(vehicle.gameVehicleID) + 1
-					obj:setMeshAlpha(playerID == vehicle.gameVehicleID and 1 or 1 - clamp(linearScale(fadeDist, fadeRadius, 0, 0, 1), 0, 1), "", false)
-				end
-				::continue::
-			end
-		end
-		firstPhysicsTimeout = firstPhysicsTimeout + dtReal
-		if firstPhysicsTimeout < firstPhysicsTimeoutThreshold then
-			be:setDynamicCollisionEnabled(false)
-			physicsActive = false
-			physicsComplete = false
-		end
-		if physicsActive then
-			physicsTimeout = physicsTimeout + dtReal
-			if physicsTimeout >= physicsTimeoutThreshold and not physicsComplete and not vehicleTooClose then
-				be:setDynamicCollisionEnabled(true)
-				physicsComplete = true
-				vehicleTooClose = false
-				for _, vehicle in pairs(vehicles) do
-					if not vehicle.isLocal and vehicle:getOwner() then
-						local obj = be:getObjectByID(vehicle.gameVehicleID)
-						if obj then obj:setMeshAlpha(1, "", false) end
-					end
-				end
-			end
-		end
-		getClosestVehicle(playerID, "careerMPEnabler.callback")
-	end
-end
-
-local function onBeamNGTrigger(data)
-	if MPVehicleGE.isOwn(data.subjectID) then
-		if data.triggerName:find("Phys") then
-			if data.event == "enter" then
-				be:setDynamicCollisionEnabled(false)
-				physicsActive = false
-				physicsComplete = false
-			elseif  data.event == "tick" then
-				local veh = be:getObjectByID(data.subjectID)
-				if veh.JBeam ~= "unicycle" then
-					be:setDynamicCollisionEnabled(false)
-					physicsActive = false
-					physicsComplete = false
-				end
-			elseif data.event == "exit" then
-				if not physicsActive then
-					physicsActive = true
-					physicsComplete = false
-					physicsTimeout = 0
-				end
-			end
 		end
 	end
 end
@@ -1199,8 +1108,6 @@ end
 
 --Access
 
-M.callback = callback
-
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
 M.onVehicleReady = onVehicleReady
@@ -1222,8 +1129,6 @@ M.onAfterVehicleRepaired = onAfterVehicleRepaired
 M.onVehiclePaintingUiOpened = onVehiclePaintingUiOpened
 
 M.onClientPostStartMission = onClientPostStartMission
-
-M.onBeamNGTrigger = onBeamNGTrigger
 
 M.onWorldReadyState = onWorldReadyState
 M.onUpdate = onUpdate
