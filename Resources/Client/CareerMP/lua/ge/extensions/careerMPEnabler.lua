@@ -936,6 +936,19 @@ local function onGameStateUpdate(state) --called by the base game any time the g
 	end
 end
 
+local function onCareerActive(active) --when a player loads a save file manually while in a server
+	if active and careerMPActive then --if their call of this event happens while CareerMP has been
+		local vehicles = MPVehicleGE.getVehicles() --get the vehicles spawned
+		for _, vehicle in pairs(vehicles) do
+			if vehicle.isLocal then --if it's local, owned by the player
+				if vehicle.jbeam ~= "unicycle" then --ignore unicycles so players don't get placed in someone else's car
+					be:getObjectByID(vehicle.gameVehicleID):delete() --delete what's leftover
+				end
+			end
+		end
+	end
+end
+
 --Garage / Office Computer Handling
 
 local function computerMenuHandler(targetVehicleID) --called after a vehicle has been selected in the garage / office computer menu, and then one of the menu items is selected, i.e. picking your vehicle and picking part shopping
@@ -1107,6 +1120,8 @@ local function onExtensionUnloaded()
 end
 
 --Access
+
+M.onCareerActive = onCareerActive
 
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
