@@ -44,7 +44,7 @@ As CareerMP relies on the base game's career mode, it currently will only functi
 
 CareerMP provides no player moderation itself, and should not conflict with the server moderation plugin of your choice, provided all players can be allowed to spawn at least 100 vehicles.
 
-CareerMP uses your BeamMP username to create a save file, you can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username before joining.
+CareerMP uses your BeamMP username to create a save file, and will currently always start you in the save file matching your BeamMP username when you join the server. You can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player to autoload online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username before joining. You may also load any save from the ESC menu in game.
 
 Currently everyone’s economy will be local to their save, that is, you cannot currently change money or vehicle, but I hope to make this available, I believe it’s quite possible.
 
