@@ -364,6 +364,10 @@ local function startShoppingActual(_originComputerId)
 
   -- Fill partsNiceName with initial vehicle parts
   local currentVehicleData = extensions.core_vehicle_manager.getVehicleData(getCurrentVehicleVehId())
+  if not currentVehicleData then
+    log('E', 'inventory', 'unable to get vehicle data')
+    return
+  end
   local availableParts = jbeamIO.getAvailableParts(currentVehicleData.ioCtx)
   for _, partName in pairs(initialVehicle.partList) do
     if partName and partName ~= "" then
