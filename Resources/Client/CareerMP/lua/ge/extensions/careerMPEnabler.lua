@@ -19,9 +19,9 @@ local originalGetDriverData --a variable that will eventually hold the original 
 local missionUIToResolve = false
 
 local pulseTimer = 0
-local pulseTimerThreshold = 0.25
+local pulseTimerThreshold = 0.125
 
-local safetyTime = 10
+local safetyTime = 5
 local safetyMargin = 0.5
 
 local ghostVehicles = {}
@@ -548,9 +548,6 @@ local function startGhost(gameVehicleID)
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
-		if veh.JBeam ~= "unicycle" then
-			veh:setMeshAlpha(0.5, "", false)
-		end
     end
     local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
     TriggerServerEvent("startGhost", serverVehicleID)
@@ -563,9 +560,6 @@ local function stopGhost(gameVehicleID)
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(false)")
-		if veh.JBeam ~= "unicycle" then
-			veh:setMeshAlpha(1, "", false)
-		end
     end
     local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
     TriggerServerEvent("stopGhost", serverVehicleID)
@@ -577,7 +571,7 @@ local function serverStartGhost(serverVehicleID)
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
-		veh:setMeshAlpha(0.5, "", false)
+		veh:setMeshAlpha(0.67, "", false)
     end
 end
 
@@ -613,6 +607,16 @@ local function updateTimer(dtReal)
             end
         end
     end
+end
+
+local function onBeamNGTrigger(data)
+	if MPVehicleGE.isOwn(data.subjectID) then
+		if data.triggerName:find("Phys") then
+			if data.event == "tick" then
+				startGhost(data.subjectID)
+			end
+		end
+	end
 end
 
 local function rxCareerVehSync(data) --called when activate states of vehicles changed, or provided to a client when joining so the start with the correct active states
@@ -1242,6 +1246,8 @@ M.onVehicleResetted = onVehicleResetted
 M.onVehicleEdited = onVehicleEdited
 M.onVehicleReady = onVehicleReady
 M.onVehicleSwitched = onVehicleSwitched
+
+M.onBeamNGTrigger = onBeamNGTrigger
 
 M.callback = callback
 
