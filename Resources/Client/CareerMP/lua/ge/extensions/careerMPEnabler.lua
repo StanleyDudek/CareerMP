@@ -21,7 +21,7 @@ local missionUIToResolve = false
 local pulseTimer = 0
 local pulseTimerThreshold = 0.125
 
-local safetyTime = 5
+local safetyTime = 2
 local safetyMargin = 0.5
 
 local ghostVehicles = {}
@@ -57,24 +57,10 @@ local userDefaultAppLayoutDirectory = "settings/ui_apps/layouts/default/"
 local userMissionAppLayoutDirectory = "settings/ui_apps/layouts/mission/"
 
 --Default Settings Values
-local userTrafficSettings = {}
-local freeRoamMPTrafficSettings = {
-	trafficAmount = 2,
-	trafficExtraAmount = 0,
-	trafficExtraVehicles = false,
-	trafficParkedAmount = 0,
-	trafficParkedVehicles = false,
-	trafficLoadForFreeroam = false,
-	trafficSmartSelections = false,
-	trafficSimpleVehicles = true,
-	trafficAllowMods = true,
-	trafficEnableSwitching = false,
-	trafficMinimap = true
-}
-
 local userGameplaySettings = {}
-local freeRoamMPGameplaySettings = {
-	simplifyRemoteVehicles = false
+local careerMPGameplaySettings = {
+	simplifyRemoteVehicles = false,
+	spawnVehicleIgnitionLevel = 0
 }
 
 --UI Layouts
@@ -545,6 +531,9 @@ end
 
 local function startGhost(gameVehicleID)
     ghostVehicles[gameVehicleID] = { timer = 0 }
+	if gameVehicleID == be:getPlayerVehicleID(0) then
+		guihooks.trigger('toastrMsg', {type = "error", title = "GHOSTING ACTIVE", msg = "You are a Ghost", config = {timeOut = safetyTime * 1000 }})
+	end
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
@@ -556,6 +545,9 @@ end
 local function stopGhost(gameVehicleID)
     if not ghostVehicles[gameVehicleID] then
 		return
+	end
+	if gameVehicleID == be:getPlayerVehicleID(0) then
+		guihooks.trigger('toastrMsg', {type = "success", title = "GHOSTING STOPPED", msg = "You are no longer a Ghost", config = {timeOut = 2000 }})
 	end
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
@@ -720,30 +712,11 @@ end
 
 local function getUserGameplaySettings()
 	userGameplaySettings.simplifyRemoteVehicles = settings.getValue("simplifyRemoteVehicles")
+	userGameplaySettings.spawnVehicleIgnitionLevel = settings.getValue("spawnVehicleIgnitionLevel")
 end
 
 local function setGameplaySettings(gameplaySettings)
 	for setting, value in pairs(gameplaySettings) do
-		settings.setValue(setting, value)
-	end
-end
-
-local function getUserTrafficSettings()
-	userTrafficSettings.trafficAmount = settings.getValue('trafficAmount')
-	userTrafficSettings.trafficExtraAmount = settings.getValue('trafficExtraAmount')
-	userTrafficSettings.trafficExtraVehicles = settings.getValue('trafficExtraVehicles')
-	userTrafficSettings.trafficParkedAmount = settings.getValue('trafficParkedAmount')
-	userTrafficSettings.trafficParkedVehicles = settings.getValue('trafficParkedVehicles')
-	userTrafficSettings.trafficLoadForFreeroam = settings.getValue('trafficLoadForFreeroam')
-	userTrafficSettings.trafficSmartSelections = settings.getValue('trafficSmartSelections')
-	userTrafficSettings.trafficSimpleVehicles = settings.getValue('trafficSimpleVehicles')
-	userTrafficSettings.trafficAllowMods = settings.getValue('trafficAllowMods')
-	userTrafficSettings.trafficEnableSwitching = settings.getValue('trafficEnableSwitching')
-	userTrafficSettings.trafficMinimap = settings.getValue('trafficMinimap')
-end
-
-local function setTrafficSettings(trafficSettings)
-	for setting, value in pairs(trafficSettings) do
 		settings.setValue(setting, value)
 	end
 end
@@ -1212,10 +1185,8 @@ end
 --Loading / Unloading
 
 local function onExtensionLoaded() --called by the base game when the extension loads, good place to setup MP event handlers
-	getUserTrafficSettings()
-	setTrafficSettings(freeRoamMPTrafficSettings)
 	getUserGameplaySettings()
-	setGameplaySettings(freeRoamMPGameplaySettings)
+	setGameplaySettings(careerMPGameplaySettings)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
 	AddEventHandler("rxUpdateWinnerLight", rxUpdateWinnerLight)
 	AddEventHandler("rxClearAll", rxClearAll)
@@ -1231,7 +1202,6 @@ end
 
 local function onExtensionUnloaded()
 	unPatchBeamMP() --better than nothing
-	setTrafficSettings(userTrafficSettings)
 	setGameplaySettings(userGameplaySettings)
 	log('W', 'careerMP', 'CareerMP Enabler UNLOADED!')
 end
