@@ -15,6 +15,9 @@ local trapNames = {
 }
 
 function onInit()
+	MP.RegisterEvent("startGhost","startGhost")
+	MP.RegisterEvent("stopGhost","stopGhost")
+
 	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
 	MP.RegisterEvent("careerSyncRequested","careerSyncRequested")
 	MP.RegisterEvent("prefabSyncRequested","prefabSyncRequested")
@@ -141,6 +144,26 @@ function prefabSyncRequested(player_id)
     end
 end
 
+function startGhost(player_id, data)
+    for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			if MP.IsPlayerConnected(id) then
+				MP.TriggerClientEvent(id, "serverStartGhost", data)
+			end
+        end
+    end
+end
+
+function stopGhost(player_id, data)
+    for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			if MP.IsPlayerConnected(id) then
+				MP.TriggerClientEvent(id, "serverStopGhost", data)
+			end
+        end
+    end
+end
+
 function careerVehicleActiveHandler(player_id, data)
 	local vehicleData = Util.JsonDecode(data)
 	if vehicleStates[vehicleData.serverVehicleID] then
@@ -180,4 +203,3 @@ end
 function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
 end
-
