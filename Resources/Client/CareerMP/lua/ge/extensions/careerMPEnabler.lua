@@ -18,6 +18,15 @@ local originalGetDriverData --a variable that will eventually hold the original 
 
 local missionUIToResolve = false
 
+local pulseTimer = 0
+local pulseTimerThreshold = 0.25
+
+local safetyTime = 10
+local safetyMargin = 0.5
+
+local ghostVehicles = {}
+local vehicleTooClose = false
+
 --Manually setup names of prefabs, from ...\BeamNG.drive\gameplay\
 local prefabNames = {
 	"arrive",
@@ -520,6 +529,92 @@ end
 
 --Vehicles
 
+local function getObjectRadius(gameVehicleID)
+    local x, y, z = be:getObjectOOBBHalfExtentsXYZ(gameVehicleID)
+    return math.sqrt(x * x + y * y + z * z)
+end
+
+local function callback(gameVehicleID, distance)
+    local playerID = be:getPlayerVehicleID(0)
+    if gameVehicleID ~= playerID then
+        local playerRadius = getObjectRadius(playerID)
+        local otherRadius = getObjectRadius(gameVehicleID)
+        vehicleTooClose = distance < (playerRadius + otherRadius + safetyMargin)
+    end
+end
+
+local function startGhost(gameVehicleID)
+    ghostVehicles[gameVehicleID] = { timer = 0 }
+    local veh = be:getObjectByID(gameVehicleID)
+    if veh then
+        veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
+		if veh.JBeam ~= "unicycle" then
+			veh:setMeshAlpha(0.5, "", false)
+		end
+    end
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+    TriggerServerEvent("startGhost", serverVehicleID)
+end
+
+local function stopGhost(gameVehicleID)
+    if not ghostVehicles[gameVehicleID] then
+		return
+	end
+    local veh = be:getObjectByID(gameVehicleID)
+    if veh then
+        veh:queueLuaCommand("careerMPEnabler.setGhost(false)")
+		if veh.JBeam ~= "unicycle" then
+			veh:setMeshAlpha(1, "", false)
+		end
+    end
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+    TriggerServerEvent("stopGhost", serverVehicleID)
+    ghostVehicles[gameVehicleID] = nil
+end
+
+local function serverStartGhost(serverVehicleID)
+    local gameVehicleID = MPVehicleGE.getGameVehicleID(serverVehicleID)
+    local veh = be:getObjectByID(gameVehicleID)
+    if veh then
+        veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
+		veh:setMeshAlpha(0.5, "", false)
+    end
+end
+
+local function serverStopGhost(serverVehicleID)
+    local gameVehicleID = MPVehicleGE.getGameVehicleID(serverVehicleID)
+    local veh = be:getObjectByID(gameVehicleID)
+    if veh then
+        veh:queueLuaCommand("careerMPEnabler.setGhost(false)")
+		veh:setMeshAlpha(1, "", false)
+    end
+end
+
+local function updateTimer(dtReal)
+	local playerID = be:getPlayerVehicleID(0)
+	getClosestVehicle(playerID, "careerMPEnabler.callback")
+    pulseTimer = pulseTimer + dtReal
+    if pulseTimer > pulseTimerThreshold then
+        pulseTimer = 0
+        for gameVehicleID, data in pairs(ghostVehicles) do
+            if vehicleTooClose then
+                data.timer = 0
+                startGhost(gameVehicleID)
+            end
+        end
+    end
+    for gameVehicleID, data in pairs(ghostVehicles) do
+        if not be:getObjectByID(gameVehicleID) then
+            ghostVehicles[gameVehicleID] = nil
+        else
+            data.timer = (data.timer or 0) + dtReal
+            if data.timer >= safetyTime then
+                stopGhost(gameVehicleID)
+            end
+        end
+    end
+end
+
 local function rxCareerVehSync(data) --called when activate states of vehicles changed, or provided to a client when joining so the start with the correct active states
 	if data ~= "null" then
 		local vehicleStates = jsonDecode(data) --decode list of states provided by server
@@ -576,6 +671,18 @@ local function onVehicleSpawned(gameVehicleID) --called by the base game when a 
 	end
 end
 
+local function onVehicleResetted(gameVehicleID)
+	if MPVehicleGE.isOwn(gameVehicleID) then
+		startGhost(gameVehicleID)
+	end
+end
+
+local function onVehicleEdited(gameVehicleID)
+	if MPVehicleGE.isOwn(gameVehicleID) then
+		startGhost(gameVehicleID)
+	end
+end
+
 local function onVehicleReady(gameVehicleID) --called from vehicle lua when the vehicle is ready to be manipulated
 	local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID) --get its server vehicle ID, ("0-0", "0-1", etc)
 	if serverVehicleID then --check nil
@@ -588,6 +695,9 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 				vehicles[serverVehicleID].hideNametag = false --or don't
 			end
 		end
+	end
+	if MPVehicleGE.isOwn(gameVehicleID) then
+		startGhost(gameVehicleID)
 	end
 end
 
@@ -932,7 +1042,7 @@ local function onGameStateUpdate(state) --called by the base game any time the g
 	end
 	checkUIApps(state) --whenever a state changes, make sure multiplayer UI apps are present in the UI app layout
 	if state.state == "career" then --if the state is changed to career
-		
+
 	end
 end
 
@@ -1091,6 +1201,7 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
 		end
+		updateTimer(dtReal)
 	end
 end
 
@@ -1107,6 +1218,8 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	AddEventHandler("rxPrefabSync", rxPrefabSync)
 	AddEventHandler("rxCareerSync", rxCareerSync)
 	AddEventHandler("rxCareerVehSync", rxCareerVehSync)
+	AddEventHandler("serverStartGhost", serverStartGhost)
+	AddEventHandler("serverStopGhost", serverStopGhost)
 	AddEventHandler("rxTrafficSignalTimer", rxTrafficSignalTimer)
 	career_career = extensions.career_careerMP --replace stock career lua with my modified careerMP lua
 	log('W', 'careerMP', 'CareerMP Enabler LOADED!')
@@ -1125,8 +1238,12 @@ M.onCareerActive = onCareerActive
 
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
+M.onVehicleResetted = onVehicleResetted
+M.onVehicleEdited = onVehicleEdited
 M.onVehicleReady = onVehicleReady
 M.onVehicleSwitched = onVehicleSwitched
+
+M.callback = callback
 
 M.onSpeedTrapTriggered = onSpeedTrapTriggered
 M.onRedLightCamTriggered = onRedLightCamTriggered
