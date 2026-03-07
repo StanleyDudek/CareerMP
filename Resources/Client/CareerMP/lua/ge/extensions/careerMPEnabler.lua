@@ -22,7 +22,7 @@ local pulseTimer = 0
 local pulseTimerThreshold = 0.125
 
 local safetyTime = 2
-local safetyMargin = 0.5
+local safetyMargin = 1
 
 local ghostVehicles = {}
 local vehicleTooClose = false
@@ -532,30 +532,30 @@ end
 local function startGhost(gameVehicleID)
     ghostVehicles[gameVehicleID] = { timer = 0 }
 	if gameVehicleID == be:getPlayerVehicleID(0) then
-		guihooks.trigger('toastrMsg', {type = "error", title = "GHOSTING ACTIVE", msg = "You are a Ghost", config = {timeOut = safetyTime * 1000 }})
+		guihooks.trigger('ScenarioRealtimeDisplay', {msg = "Ghosted..."})
 	end
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(true)")
+		local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+		TriggerServerEvent("startGhost", serverVehicleID)
     end
-    local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
-    TriggerServerEvent("startGhost", serverVehicleID)
 end
 
 local function stopGhost(gameVehicleID)
     if not ghostVehicles[gameVehicleID] then
 		return
 	end
-	if gameVehicleID == be:getPlayerVehicleID(0) then
-		guihooks.trigger('toastrMsg', {type = "success", title = "GHOSTING STOPPED", msg = "You are no longer a Ghost", config = {timeOut = 2000 }})
+	if gameVehicleID == be:getPlayerVehicleID(0) or be:getObjectByID(gameVehicleID).JBeam == "unicycle" then
+		guihooks.trigger('ScenarioRealtimeDisplay', {msg = ""})
 	end
     local veh = be:getObjectByID(gameVehicleID)
     if veh then
         veh:queueLuaCommand("careerMPEnabler.setGhost(false)")
+		local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+		TriggerServerEvent("stopGhost", serverVehicleID)
+		ghostVehicles[gameVehicleID] = nil
     end
-    local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
-    TriggerServerEvent("stopGhost", serverVehicleID)
-    ghostVehicles[gameVehicleID] = nil
 end
 
 local function serverStartGhost(serverVehicleID)
