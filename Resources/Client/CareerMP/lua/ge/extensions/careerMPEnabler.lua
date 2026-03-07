@@ -48,24 +48,10 @@ local userDefaultAppLayoutDirectory = "settings/ui_apps/layouts/default/"
 local userMissionAppLayoutDirectory = "settings/ui_apps/layouts/mission/"
 
 --Default Settings Values
-local userTrafficSettings = {}
-local freeRoamMPTrafficSettings = {
-	trafficAmount = 2,
-	trafficExtraAmount = 0,
-	trafficExtraVehicles = false,
-	trafficParkedAmount = 0,
-	trafficParkedVehicles = false,
-	trafficLoadForFreeroam = false,
-	trafficSmartSelections = false,
-	trafficSimpleVehicles = true,
-	trafficAllowMods = true,
-	trafficEnableSwitching = false,
-	trafficMinimap = true
-}
-
 local userGameplaySettings = {}
-local freeRoamMPGameplaySettings = {
-	simplifyRemoteVehicles = false
+local careerMPGameplaySettings = {
+	simplifyRemoteVehicles = false,
+	spawnVehicleIgnitionLevel = 0
 }
 
 --UI Layouts
@@ -606,30 +592,11 @@ end
 
 local function getUserGameplaySettings()
 	userGameplaySettings.simplifyRemoteVehicles = settings.getValue("simplifyRemoteVehicles")
+	userGameplaySettings.spawnVehicleIgnitionLevel = settings.getValue("spawnVehicleIgnitionLevel")
 end
 
 local function setGameplaySettings(gameplaySettings)
 	for setting, value in pairs(gameplaySettings) do
-		settings.setValue(setting, value)
-	end
-end
-
-local function getUserTrafficSettings()
-	userTrafficSettings.trafficAmount = settings.getValue('trafficAmount')
-	userTrafficSettings.trafficExtraAmount = settings.getValue('trafficExtraAmount')
-	userTrafficSettings.trafficExtraVehicles = settings.getValue('trafficExtraVehicles')
-	userTrafficSettings.trafficParkedAmount = settings.getValue('trafficParkedAmount')
-	userTrafficSettings.trafficParkedVehicles = settings.getValue('trafficParkedVehicles')
-	userTrafficSettings.trafficLoadForFreeroam = settings.getValue('trafficLoadForFreeroam')
-	userTrafficSettings.trafficSmartSelections = settings.getValue('trafficSmartSelections')
-	userTrafficSettings.trafficSimpleVehicles = settings.getValue('trafficSimpleVehicles')
-	userTrafficSettings.trafficAllowMods = settings.getValue('trafficAllowMods')
-	userTrafficSettings.trafficEnableSwitching = settings.getValue('trafficEnableSwitching')
-	userTrafficSettings.trafficMinimap = settings.getValue('trafficMinimap')
-end
-
-local function setTrafficSettings(trafficSettings)
-	for setting, value in pairs(trafficSettings) do
 		settings.setValue(setting, value)
 	end
 end
@@ -1097,10 +1064,8 @@ end
 --Loading / Unloading
 
 local function onExtensionLoaded() --called by the base game when the extension loads, good place to setup MP event handlers
-	getUserTrafficSettings()
-	setTrafficSettings(freeRoamMPTrafficSettings)
 	getUserGameplaySettings()
-	setGameplaySettings(freeRoamMPGameplaySettings)
+	setGameplaySettings(careerMPGameplaySettings)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
 	AddEventHandler("rxUpdateWinnerLight", rxUpdateWinnerLight)
 	AddEventHandler("rxClearAll", rxClearAll)
@@ -1154,3 +1119,4 @@ M.onExtensionUnloaded = onExtensionUnloaded
 M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
 return M
+
