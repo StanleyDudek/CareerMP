@@ -48,6 +48,13 @@ local userDefaultAppLayoutDirectory = "settings/ui_apps/layouts/default/"
 local userMissionAppLayoutDirectory = "settings/ui_apps/layouts/mission/"
 
 --Default Settings Values
+local userTrafficSettings = {}
+local careerMPTrafficSettings = {
+	trafficSmartSelections = false,
+	trafficSimpleVehicles = true,
+	trafficAllowMods = true
+}
+
 local userGameplaySettings = {}
 local careerMPGameplaySettings = {
 	simplifyRemoteVehicles = false,
@@ -590,6 +597,18 @@ end
 
 --Traffic
 
+local function getUserTrafficSettings()
+	userTrafficSettings.trafficSmartSelections = settings.getValue('trafficSmartSelections')
+	userTrafficSettings.trafficSimpleVehicles = settings.getValue('trafficSimpleVehicles')
+	userTrafficSettings.trafficAllowMods = settings.getValue('trafficAllowMods')
+end
+
+local function setTrafficSettings(trafficSettings)
+	for setting, value in pairs(trafficSettings) do
+		settings.setValue(setting, value)
+	end
+end
+
 local function getUserGameplaySettings()
 	userGameplaySettings.simplifyRemoteVehicles = settings.getValue("simplifyRemoteVehicles")
 	userGameplaySettings.spawnVehicleIgnitionLevel = settings.getValue("spawnVehicleIgnitionLevel")
@@ -1064,6 +1083,8 @@ end
 --Loading / Unloading
 
 local function onExtensionLoaded() --called by the base game when the extension loads, good place to setup MP event handlers
+	getUserTrafficSettings()
+	setTrafficSettings(careerMPTrafficSettings)
 	getUserGameplaySettings()
 	setGameplaySettings(careerMPGameplaySettings)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
@@ -1119,4 +1140,3 @@ M.onExtensionUnloaded = onExtensionUnloaded
 M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
 return M
-
