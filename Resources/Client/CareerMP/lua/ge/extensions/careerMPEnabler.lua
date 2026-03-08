@@ -257,6 +257,7 @@ local function payPlayer(player_name, amount)
 					if playerData.name == player_name then
 						target_player_id = playerData.playerID
 						career_modules_playerAttributes.addAttributes({money = -amount}, {tags = {"gameplay"}, label = "Paid player: " .. player_name})
+						career_saveSystem.saveCurrent()
 						guihooks.trigger('toastrMsg', {type = "success", title = "Payment sent!", msg = "You paid " .. player_name .. " $" .. amount, config = {timeOut = 5000}})
 						local data = jsonEncode({money = amount, tags = {"gameplay"}, label = "Paid user: " .. player_name, target_player_id = target_player_id, target_player_name = player_name})
 						TriggerServerEvent("payPlayer", data)
@@ -283,6 +284,7 @@ end
 local function rxBounce(data)
 	local paymentData = jsonDecode(data)
 	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Bounceback from player:" .. paymentData.target_player_name})
+	career_saveSystem.saveCurrent()
 	guihooks.trigger('toastrMsg', {type = "error", title = "Payment returned!", msg = paymentData.target_player_name .. "is not fully connected! Your payment of $" .. paymentData.money .. " was returned.", config = {timeOut = 5000}})
 end
 
