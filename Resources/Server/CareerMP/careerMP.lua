@@ -44,6 +44,7 @@ end
 
 function payPlayer(player_id, data)
 	local paymentData = Util.JsonDecode(data)
+	paymentData.sender = MP.GetPlayerName(player_id)
 	if MP.IsPlayerConnected(paymentData.target_player_id) then
 		MP.TriggerClientEventJson(paymentData.target_player_id, "rxPayment", paymentData)
 	else
