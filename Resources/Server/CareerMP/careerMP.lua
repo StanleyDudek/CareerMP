@@ -15,6 +15,8 @@ local trapNames = {
 }
 
 function onInit()
+	MP.RegisterEvent("payPlayer","payPlayer")
+
 	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
 	MP.RegisterEvent("careerSyncRequested","careerSyncRequested")
 	MP.RegisterEvent("prefabSyncRequested","prefabSyncRequested")
@@ -38,6 +40,15 @@ function onInit()
 	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
+end
+
+function payPlayer(player_id, data)
+	local paymentData = Util.JsonDecode(data)
+	if MP.IsPlayerConnected(paymentData.target_player_id) then
+		MP.TriggerClientEventJson(paymentData.target_player_id, "rxPayment", paymentData)
+	else
+		MP.TriggerClientEventJson(player_id, "rxBounce", paymentData)
+	end
 end
 
 function txUpdateDisplay(player_id, data)
@@ -180,4 +191,3 @@ end
 function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
 end
-
