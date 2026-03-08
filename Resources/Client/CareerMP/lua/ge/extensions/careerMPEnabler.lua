@@ -278,7 +278,8 @@ end
 local function rxPayment(data)
 	local paymentData = jsonDecode(data)
 	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Payment from player: " .. paymentData.target_player_name})
-	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.target_player_name .. " paid you $" .. paymentData.money, config = {timeOut = 5000}})
+	career_saveSystem.saveCurrent()
+	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.sender .. " paid you $" .. paymentData.money, config = {timeOut = 5000}})
 end
 
 local function rxBounce(data)
