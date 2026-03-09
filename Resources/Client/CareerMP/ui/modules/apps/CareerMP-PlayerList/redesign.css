@@ -79,7 +79,7 @@
 		}
 
 
-		.multiplayerPlayerList .buttons {
+		.careermpPlayerList .buttons {
 			color: #DDDDDD;
 			transition: 0.20s;
 			background-color: transparent;
@@ -88,7 +88,7 @@
 			margin: 0px 0 0 0;
 			cursor: pointer;
 		}
-		.multiplayerPlayerList .buttons:hover {
+		.careermpPlayerList .buttons:hover {
 			background-color: rgba(0, 0, 0, 0.2);
 			color: #FFFFFF;
 		}
