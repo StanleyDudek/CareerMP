@@ -870,10 +870,24 @@ local function findApp(layout, name)
 end
 
 local function ensureApp(layout, appData)
-    if not findApp(layout, appData.appName) then
+    local firstIndex = nil
+    local removed = false
+    for i = #layout.apps, 1, -1 do
+        local app = layout.apps[i]
+        if app.appName == appData.appName then
+            if not firstIndex then
+                firstIndex = i
+            else
+                table.remove(layout.apps, i)
+                removed = true
+            end
+        end
+    end
+    if not firstIndex then
         table.insert(layout.apps, deepcopy(appData))
         return true
     end
+    return removed
 end
 
 local function replaceApp(layout, oldName, newApp)
@@ -1162,4 +1176,3 @@ M.onExtensionUnloaded = onExtensionUnloaded
 M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
 return M
-
