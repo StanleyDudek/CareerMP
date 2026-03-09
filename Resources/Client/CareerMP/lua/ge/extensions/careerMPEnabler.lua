@@ -888,7 +888,7 @@ local function loadLayout(customDir, defaultDir, filename)
 end
 
 local function checkUIApps(state)
-    local mpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "multiplayer.uilayout.json")
+    local mpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "careermp.uilayout.json")
     if mpLayout then
         for _, app in pairs(mpLayout.apps) do
             multiplayerApps[app.appName] = app
