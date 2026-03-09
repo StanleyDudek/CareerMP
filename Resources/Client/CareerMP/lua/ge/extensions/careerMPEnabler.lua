@@ -18,6 +18,10 @@ local originalGetDriverData --a variable that will eventually hold the original 
 
 local missionUIToResolve = false
 
+local paymentAllowed = false
+local paymentTimer = 0
+local paymentTimerThreshold = 2.5
+
 --Manually setup names of prefabs, from ...\BeamNG.drive\gameplay\
 local prefabNames = {
 	"arrive",
@@ -126,7 +130,7 @@ local multiplayerApps = {
 			width = "550px",
 			bottom = "0px",
 			height = "170px",
-			left = "180px"
+			left = "305px"
 		}
 	},
 	multiplayersession = {
@@ -142,15 +146,15 @@ local multiplayerApps = {
 			width = "700px"
 		}
 	},
-	multiplayerplayerlist = {
-		appName = "multiplayerplayerlist",
+	careermpplayerlist = {
+		appName = "careermpplayerlist",
 		placement = {
 			bottom = "",
 			height = "560px",
 			left = "",
 			position = "absolute",
 			right = "0px",
-			top = "30px",
+			top = "240px",
 			width = "300px"
 		}
 	}
@@ -239,6 +243,59 @@ local hiddens = {
 	woodcrate = "woodcrate",
 	woodplanks = "woodplanks",
 }
+
+--Payments
+
+local function payPlayer(player_name, amount)
+	if paymentAllowed then
+		paymentTimer = 0
+		paymentAllowed = false
+		local target_player_id
+		if amount then
+			amount = math.abs(amount)
+		end
+		if player_name and player_name ~= nickname then
+			local selfMoney = career_modules_playerAttributes.getAttribute("money").value
+			if selfMoney then
+				local validTransaction = selfMoney - amount >= 0
+				if validTransaction then
+					local players = MPVehicleGE.getPlayers()
+					for _, playerData in pairs(players) do
+						if playerData.name == player_name then
+							target_player_id = playerData.playerID
+							career_modules_playerAttributes.addAttributes({money = -amount}, {tags = {"gameplay"}, label = "Paid player: " .. player_name})
+							career_saveSystem.saveCurrent()
+							guihooks.trigger('toastrMsg', {type = "success", title = "Payment sent!", msg = "You paid " .. player_name .. " $" .. amount, config = {timeOut = 2500}})
+							local data = jsonEncode({money = amount, tags = {"gameplay"}, label = "Paid user: " .. player_name, target_player_id = target_player_id, target_player_name = player_name})
+							TriggerServerEvent("payPlayer", data)
+							break
+						end
+					end
+				else
+					guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You do not have enough money to pay " .. player_name .. "!", config = {timeOut = 2500}})
+				end
+			else
+				guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "Player attribute not found!", config = {timeOut = 2500}})
+			end
+		else
+			guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You cannot pay yourself!", config = {timeOut = 2500}})
+		end
+	end
+end
+
+local function rxPayment(data)
+	local paymentData = jsonDecode(data)
+	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Payment from player: " .. paymentData.target_player_name})
+	career_saveSystem.saveCurrent()
+	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.sender .. " paid you $" .. paymentData.money, config = {timeOut = 2500}})
+end
+
+local function rxBounce(data)
+	local paymentData = jsonDecode(data)
+	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Bounceback from player:" .. paymentData.target_player_name})
+	career_saveSystem.saveCurrent()
+	guihooks.trigger('toastrMsg', {type = "error", title = "Payment returned!", msg = paymentData.target_player_name .. "is not fully connected! Your payment of $" .. paymentData.money .. " was returned.", config = {timeOut = 2500}})
+end
 
 --Drag Race Displays, most of the folllowing is ripped from the base game to duplicate the behavior in MP
 local dragData --variable to hold collected drag data to apply to the local client when a remote client does drag races
@@ -804,108 +861,65 @@ end
 
 --State and UI Apps
 
-local function checkUIApps(state) --this extremely verbose and probably redundant, etc, but it works, whenever a state changes, we get the current ui apps layout and make sure the multiplayer ui apps are present.
-	local originalMpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "multiplayer.uilayout.json")
-	local currentMpLayout = deepcopy(originalMpLayout)
-	if currentMpLayout then
-		for _, app in pairs(currentMpLayout.apps) do
-			if app.appName == "multiplayerchat" then
-				multiplayerApps.multiplayerchat = app
-			end
-			if app.appName == "multiplayersession" then
-				multiplayerApps.multiplayersession = app
-			end
-			if app.appName == "multiplayerplayerlist" then
-				multiplayerApps.multiplayerplayerlist = app
-			end
-		end
+local function findApp(layout, name)
+    for i, app in ipairs(layout.apps) do
+        if app.appName == name then
+            return i, app
+        end
+    end
+end
+
+local function ensureApp(layout, appData)
+    if not findApp(layout, appData.appName) then
+        table.insert(layout.apps, deepcopy(appData))
+        return true
+    end
+end
+
+local function replaceApp(layout, oldName, newApp)
+    local i = findApp(layout, oldName)
+    if i then
+        layout.apps[i] = deepcopy(newApp)
+        return true
+    end
+end
+
+local function loadLayout(customDir, defaultDir, filename)
+    local custom = jsonReadFile(customDir .. filename .. ".uilayout.json")
+    if custom then
+        return deepcopy(custom), customDir
+    end
+    local default = jsonReadFile(defaultDir .. filename .. ".uilayout.json")
+    if default then
+        return deepcopy(default), customDir
+    end
+end
+
+local function checkUIApps(state)
+    local mpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "careermp.uilayout.json")
+    if mpLayout then
+        for _, app in pairs(mpLayout.apps) do
+            multiplayerApps[app.appName] = app
+        end
+    end
+    local layoutInfo = defaultLayouts[state.appLayout] or missionLayouts[state.appLayout]
+    if not layoutInfo then
+		return
 	end
-	local found
-	if defaultLayouts[state.appLayout] then
-		local customLayout = jsonReadFile(userDefaultAppLayoutDirectory .. defaultLayouts[state.appLayout].filename .. ".uilayout.json")
-		local defaultLayout
-		local currentLayout
-		if customLayout then
-			currentLayout = deepcopy(customLayout)
-		else
-			defaultLayout = jsonReadFile(defaultAppLayoutDirectory .. defaultLayouts[state.appLayout].filename .. ".uilayout.json")
-			currentLayout = deepcopy(defaultLayout)
-		end
-		if currentLayout then
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayerchat" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayerchat)
-				stateToUpdate = true
-			end
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayersession" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayersession)
-				stateToUpdate = true
-			end
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayerplayerlist" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayerplayerlist)
-				stateToUpdate = true
-			end
-		end
-		if stateToUpdate then
-			jsonWriteFile(userDefaultAppLayoutDirectory .. defaultLayouts[state.appLayout].filename .. ".uilayout.json", currentLayout, 1)
-		end
-	elseif missionLayouts[state.appLayout] then
-		local customLayout = jsonReadFile(userMissionAppLayoutDirectory .. missionLayouts[state.appLayout].filename .. ".uilayout.json")
-		local missionLayout
-		local currentLayout
-		if customLayout then
-			currentLayout = deepcopy(customLayout)
-		else
-			missionLayout = jsonReadFile(missionAppLayoutDirectory .. missionLayouts[state.appLayout].filename .. ".uilayout.json")
-			currentLayout = deepcopy(missionLayout)
-		end
-		if currentLayout then
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayerchat" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayerchat)
-				stateToUpdate = true
-			end
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayersession" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayersession)
-				stateToUpdate = true
-			end
-			for _, app in pairs(currentLayout.apps) do
-				if app.appName == "multiplayerplayerlist" then
-					found = true
-				end
-			end
-			if not found then
-				table.insert(currentLayout.apps, multiplayerApps.multiplayerplayerlist)
-				stateToUpdate = true
-			end
-		end
-		if stateToUpdate then
-			jsonWriteFile(userMissionAppLayoutDirectory .. missionLayouts[state.appLayout].filename .. ".uilayout.json", currentLayout, 1)
-		end
+    local customDir = defaultLayouts[state.appLayout] and userDefaultAppLayoutDirectory or userMissionAppLayoutDirectory    local defaultDir = defaultLayouts[state.appLayout] and defaultAppLayoutDirectory or missionAppLayoutDirectory
+    local layout, saveDir = loadLayout(customDir, defaultDir, layoutInfo.filename)
+    if not layout then
+		return
 	end
+    local updated = false
+    updated = ensureApp(layout, multiplayerApps.multiplayerchat) or updated
+    updated = ensureApp(layout, multiplayerApps.multiplayersession) or updated
+    updated = replaceApp(layout, "multiplayerplayerlist", multiplayerApps.careermpplayerlist) or updated
+    updated = ensureApp(layout, multiplayerApps.careermpplayerlist) or updated
+    if updated then
+        jsonWriteFile(saveDir .. layoutInfo.filename .. ".uilayout.json", layout, 1)
+		stateToUpdate = true
+    end
 end
 
 local function onGameStateUpdate(state) --called by the base game any time the gamestate changes
@@ -1064,6 +1078,10 @@ local function onClientPostStartMission(levelPath) --called by base game once th
 end
 
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
+	paymentTimer = paymentTimer + dtReal
+	if paymentTimer > paymentTimerThreshold then
+		paymentAllowed = true
+	end
 	patchBeamMP() --patch BeamMP's unicycle deletion
 	if worldReadyState == 2 then --if the level is loaded
 		manageDragLights(dtSim) --handle drag lights
@@ -1087,6 +1105,8 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	setTrafficSettings(careerMPTrafficSettings)
 	getUserGameplaySettings()
 	setGameplaySettings(careerMPGameplaySettings)
+	AddEventHandler("rxPayment", rxPayment)
+	AddEventHandler("rxBounce", rxBounce)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
 	AddEventHandler("rxUpdateWinnerLight", rxUpdateWinnerLight)
 	AddEventHandler("rxClearAll", rxClearAll)
@@ -1108,6 +1128,8 @@ end
 --Access
 
 M.onCareerActive = onCareerActive
+
+M.payPlayer = payPlayer
 
 M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
@@ -1140,3 +1162,4 @@ M.onExtensionUnloaded = onExtensionUnloaded
 M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
 return M
+

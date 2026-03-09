@@ -1,0 +1,18 @@
+{
+  "domElement": "<careermpplayerlist></careermpplayerlist>",
+  "name": "CareerMP Player List",
+  "types": [
+    "ui.apps.categories.multiplayer"
+  ],
+  "css": {
+  	"right": "0px",
+  	"top": "90px",
+    "min-width": "300px",
+  	"width": "auto",
+    "height": "530px"
+  },
+  "description": "The playerlist for the CareerMP session.",
+  "author": "BeamMP Team",
+  "version": "1.0",
+  "directive": "careermpplayerlist"
+}
