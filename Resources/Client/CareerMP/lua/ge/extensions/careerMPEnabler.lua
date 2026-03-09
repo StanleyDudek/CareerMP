@@ -18,6 +18,10 @@ local originalGetDriverData --a variable that will eventually hold the original 
 
 local missionUIToResolve = false
 
+local paymentAllowed = false
+local paymentTimer = 0
+local paymentTimerThreshold = 2.5
+
 --Manually setup names of prefabs, from ...\BeamNG.drive\gameplay\
 local prefabNames = {
 	"arrive",
@@ -243,35 +247,39 @@ local hiddens = {
 --Payments
 
 local function payPlayer(player_name, amount)
-	local target_player_id
-	if amount then
-		amount = math.abs(amount)
-	end
-	if player_name and player_name ~= nickname then
-		local selfMoney = career_modules_playerAttributes.getAttribute("money").value
-		if selfMoney then
-			local validTransaction = selfMoney - amount >= 0
-			if validTransaction then
-				local players = MPVehicleGE.getPlayers()
-				for _, playerData in pairs(players) do
-					if playerData.name == player_name then
-						target_player_id = playerData.playerID
-						career_modules_playerAttributes.addAttributes({money = -amount}, {tags = {"gameplay"}, label = "Paid player: " .. player_name})
-						career_saveSystem.saveCurrent()
-						guihooks.trigger('toastrMsg', {type = "success", title = "Payment sent!", msg = "You paid " .. player_name .. " $" .. amount, config = {timeOut = 5000}})
-						local data = jsonEncode({money = amount, tags = {"gameplay"}, label = "Paid user: " .. player_name, target_player_id = target_player_id, target_player_name = player_name})
-						TriggerServerEvent("payPlayer", data)
-						break
+	if paymentAllowed then
+		paymentTimer = 0
+		paymentAllowed = false
+		local target_player_id
+		if amount then
+			amount = math.abs(amount)
+		end
+		if player_name and player_name ~= nickname then
+			local selfMoney = career_modules_playerAttributes.getAttribute("money").value
+			if selfMoney then
+				local validTransaction = selfMoney - amount >= 0
+				if validTransaction then
+					local players = MPVehicleGE.getPlayers()
+					for _, playerData in pairs(players) do
+						if playerData.name == player_name then
+							target_player_id = playerData.playerID
+							career_modules_playerAttributes.addAttributes({money = -amount}, {tags = {"gameplay"}, label = "Paid player: " .. player_name})
+							career_saveSystem.saveCurrent()
+							guihooks.trigger('toastrMsg', {type = "success", title = "Payment sent!", msg = "You paid " .. player_name .. " $" .. amount, config = {timeOut = 2500}})
+							local data = jsonEncode({money = amount, tags = {"gameplay"}, label = "Paid user: " .. player_name, target_player_id = target_player_id, target_player_name = player_name})
+							TriggerServerEvent("payPlayer", data)
+							break
+						end
 					end
+				else
+					guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You do not have enough money to pay " .. player_name .. "!", config = {timeOut = 2500}})
 				end
 			else
-				guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You do not have enough money to pay " .. player_name .. "!", config = {timeOut = 5000}})
+				guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "Player attribute not found!", config = {timeOut = 2500}})
 			end
 		else
-			guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "Player attribute not found!", config = {timeOut = 5000}})
+			guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You cannot pay yourself!", config = {timeOut = 2500}})
 		end
-	else
-		guihooks.trigger('toastrMsg', {type = "error", title = "Invalid transaction!", msg = "You cannot pay yourself!", config = {timeOut = 5000}})
 	end
 end
 
@@ -279,14 +287,14 @@ local function rxPayment(data)
 	local paymentData = jsonDecode(data)
 	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Payment from player: " .. paymentData.target_player_name})
 	career_saveSystem.saveCurrent()
-	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.sender .. " paid you $" .. paymentData.money, config = {timeOut = 5000}})
+	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.sender .. " paid you $" .. paymentData.money, config = {timeOut = 2500}})
 end
 
 local function rxBounce(data)
 	local paymentData = jsonDecode(data)
 	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Bounceback from player:" .. paymentData.target_player_name})
 	career_saveSystem.saveCurrent()
-	guihooks.trigger('toastrMsg', {type = "error", title = "Payment returned!", msg = paymentData.target_player_name .. "is not fully connected! Your payment of $" .. paymentData.money .. " was returned.", config = {timeOut = 5000}})
+	guihooks.trigger('toastrMsg', {type = "error", title = "Payment returned!", msg = paymentData.target_player_name .. "is not fully connected! Your payment of $" .. paymentData.money .. " was returned.", config = {timeOut = 2500}})
 end
 
 --Drag Race Displays, most of the folllowing is ripped from the base game to duplicate the behavior in MP
@@ -1070,6 +1078,10 @@ local function onClientPostStartMission(levelPath) --called by base game once th
 end
 
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
+	paymentTimer = paymentTimer + dtReal
+	if paymentTimer > paymentTimerThreshold then
+		paymentAllowed = true
+	end
 	patchBeamMP() --patch BeamMP's unicycle deletion
 	if worldReadyState == 2 then --if the level is loaded
 		manageDragLights(dtSim) --handle drag lights
