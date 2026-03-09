@@ -285,14 +285,14 @@ end
 
 local function rxPayment(data)
 	local paymentData = jsonDecode(data)
-	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Payment from player: " .. paymentData.target_player_name})
+	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Payment from player: " .. paymentData.sender})
 	career_saveSystem.saveCurrent()
 	guihooks.trigger('toastrMsg', {type = "success", title = "Payment received!", msg = paymentData.sender .. " paid you $" .. paymentData.money, config = {timeOut = 2500}})
 end
 
 local function rxBounce(data)
 	local paymentData = jsonDecode(data)
-	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Bounceback from player:" .. paymentData.target_player_name})
+	career_modules_playerAttributes.addAttributes({money = paymentData.money}, {tags = paymentData.tags, label = "Bounceback from player:" .. paymentData.sender})
 	career_saveSystem.saveCurrent()
 	guihooks.trigger('toastrMsg', {type = "error", title = "Payment returned!", msg = paymentData.target_player_name .. "is not fully connected! Your payment of $" .. paymentData.money .. " was returned.", config = {timeOut = 2500}})
 end
@@ -926,10 +926,10 @@ local function checkUIApps(state)
 		return
 	end
     local updated = false
-    updated = ensureApp(layout, multiplayerApps.multiplayerchat) or updated
-    updated = ensureApp(layout, multiplayerApps.multiplayersession) or updated
-    updated = replaceApp(layout, "multiplayerplayerlist", multiplayerApps.careermpplayerlist) or updated
-    updated = ensureApp(layout, multiplayerApps.careermpplayerlist) or updated
+	updated = ensureApp(layout, multiplayerApps.multiplayerchat) or updated
+	updated = ensureApp(layout, multiplayerApps.multiplayersession) or updated
+	updated = replaceApp(layout, "multiplayerplayerlist", multiplayerApps.careermpplayerlist) or updated
+	updated = ensureApp(layout, multiplayerApps.careermpplayerlist) or updated
     if updated then
         jsonWriteFile(saveDir .. layoutInfo.filename .. ".uilayout.json", layout, 1)
 		stateToUpdate = true
