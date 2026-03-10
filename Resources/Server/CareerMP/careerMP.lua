@@ -103,18 +103,12 @@ local function attemptTransaction(sender_id, receiver_id, amount, now)
     end
     sender.session_total = sender.session_total + amount
     receiver.session_total = receiver.session_total + amount
-    if amount <= shortWindowMax then
-        table.insert(sender.short_transactions, { amount = amount, timestamp = now })
-    end
-    if amount <= longWindowMax then
-        table.insert(sender.long_transactions, { amount = amount, timestamp = now })
-    end
-    if amount < shortWindowMax then
-        table.insert(sender.short_transactions, { amount = amount, timestamp = now })
-    end
-    if amount < longWindowMax then
-        table.insert(sender.long_transactions, { amount = amount, timestamp = now })
-    end
+	if amount <= shortWindowMax then
+		table.insert(sender.short_transactions, { amount = amount, timestamp = now })
+	end
+	if amount <= longWindowMax then
+		table.insert(sender.long_transactions, { amount = amount, timestamp = now })
+	end
     return true
 end
 
