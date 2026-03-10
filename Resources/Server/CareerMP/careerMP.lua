@@ -2,7 +2,19 @@
 
 local vehicleStates = {}
 local loadedPrefabs = {}
+
 local signalTimer = MP.CreateTimer()
+
+local sessionTransactionMax = 100000
+local sessionReceiveMax = 200000
+local shortWindowMax = 1000
+local shortWindowSeconds = 30
+local longWindowMax = 10000
+local longWindowSeconds = 300
+local sendLedger = {}
+local receiveLedger = {}
+
+local allowTransactions = true
 
 local trapNames = {
     [1] = "Riverway Plaza",
@@ -42,13 +54,86 @@ function onInit()
 	print("[CareerMP] ---------- CareerMP Loaded!")
 end
 
+local function getOrCreate(ledger, player_id)
+    if not ledger[player_id] then
+        ledger[player_id] = {
+            session_total = 0,
+            short_transactions = {},
+            long_transactions = {}
+        }
+    end
+    return ledger[player_id]
+end
+
+local function getWindowTotal(transactions, now, windowSeconds)
+    local window_total = 0
+    local cutoff = now - windowSeconds
+    local kept = {}
+    for _, transaction in ipairs(transactions) do
+        if transaction.timestamp > cutoff then
+            table.insert(kept, transaction)
+            window_total = window_total + transaction.amount
+        end
+    end
+    for i = #transactions, 1, -1 do
+		transactions[i] = nil
+		end
+    for _, t in ipairs(kept) do
+		table.insert(transactions, t)
+	end
+    return window_total
+end
+
+local function attemptTransaction(sender_id, receiver_id, amount, now)
+    local sender = getOrCreate(sendLedger, sender_id)
+    local receiver = getOrCreate(receiveLedger, receiver_id)
+    local short_total = getWindowTotal(sender.short_transactions, now, shortWindowSeconds)
+    local long_total = getWindowTotal(sender.long_transactions, now, longWindowSeconds)
+    if sender.session_total + amount > sessionTransactionMax then
+        return false
+    end
+    if short_total > 0 and short_total + amount > shortWindowMax then
+        return false
+    end
+    if long_total > 0 and long_total + amount > longWindowMax then
+        return false
+    end
+    if receiver.session_total + amount > sessionReceiveMax then
+        return false
+    end
+    sender.session_total = sender.session_total + amount
+    receiver.session_total = receiver.session_total + amount
+    if amount <= shortWindowMax then
+        table.insert(sender.short_transactions, { amount = amount, timestamp = now })
+    end
+    if amount <= longWindowMax then
+        table.insert(sender.long_transactions, { amount = amount, timestamp = now })
+    end
+    if amount < shortWindowMax then
+        table.insert(sender.short_transactions, { amount = amount, timestamp = now })
+    end
+    if amount < longWindowMax then
+        table.insert(sender.long_transactions, { amount = amount, timestamp = now })
+    end
+    return true
+end
+
 function payPlayer(player_id, data)
 	local paymentData = Util.JsonDecode(data)
 	paymentData.sender = MP.GetPlayerName(player_id)
-	if MP.IsPlayerConnected(paymentData.target_player_id) then
-		MP.TriggerClientEventJson(paymentData.target_player_id, "rxPayment", paymentData)
+	if allowTransactions then
+		if MP.IsPlayerConnected(paymentData.target_player_id) then
+			if attemptTransaction(player_id, paymentData.target_player_id, paymentData.money, signalTimer:GetCurrent()) then
+				MP.TriggerClientEventJson(paymentData.target_player_id, "rxPayment", paymentData)
+				MP.TriggerClientEventJson(player_id, "rxConfirmation", paymentData)
+			else
+				MP.TriggerClientEventJson(player_id, "rxBounce", paymentData)
+			end
+		else
+			MP.TriggerClientEventJson(player_id, "rxBounce", paymentData)
+		end
 	else
-		MP.TriggerClientEventJson(player_id, "rxBounce", paymentData)
+		MP.TriggerClientEventJson(player_id, "rxDeny", paymentData)
 	end
 end
 
@@ -191,4 +276,6 @@ end
 
 function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
+	sendLedger[player_id] = nil
+	receiveLedger[player_id] = nil
 end
