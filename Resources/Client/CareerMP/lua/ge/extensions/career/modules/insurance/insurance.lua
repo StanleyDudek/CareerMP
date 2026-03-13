@@ -435,9 +435,26 @@ local function makeTestDriveDamageClaim(vehId)
 end
 local originComputerId
 local function makeRepairClaim(invVehId, costs, vehInfo)
+  if not vehInfo then
+    vehInfo = career_modules_inventory.getVehicles()[invVehId]
+  end
   local totalCost = 0
-  for _, cost in pairs(costs) do
-    totalCost = totalCost + cost
+  if costs then
+    if costs.deductible then
+      if costs.deductible.vouchers then
+        if costs.deductible.vouchers.amount > 0 then
+          totalCost = 0
+        end
+      elseif costs.deductible.money then
+        if costs.deductible.money.amount then
+          totalCost = costs.deductible.money.amount
+        end
+      else
+        for _, cost in pairs(costs) do
+          totalCost = totalCost + cost
+        end
+      end
+    end
   end
 
   local insuranceId = invVehs[invVehId].id
