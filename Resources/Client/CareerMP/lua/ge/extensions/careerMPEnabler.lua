@@ -958,6 +958,9 @@ local function onGameStateUpdate(state) --called by the base game any time the g
 	if state.state ~= "career" then --if the state is changed to something other than career
         setTrafficSettings(userTrafficSettings)
         setGameplaySettings(userGameplaySettings)
+	elseif state.state == "career" then --if the state is changed to career
+        setTrafficSettings(careerMPTrafficSettings)
+        setGameplaySettings(careerMPGameplaySettings)
 	end
 end
 
