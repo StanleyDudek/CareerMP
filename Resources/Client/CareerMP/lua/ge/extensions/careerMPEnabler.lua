@@ -955,13 +955,14 @@ local function onGameStateUpdate(state) --called by the base game any time the g
 		missionUIToResolve = true
 	end
 	checkUIApps(state) --whenever a state changes, make sure multiplayer UI apps are present in the UI app layout
-	if state.state ~= "career" then --if the state is changed to something other than career
-        setTrafficSettings(userTrafficSettings)
-        setGameplaySettings(userGameplaySettings)
-	elseif state.state == "career" then --if the state is changed to career
-        setTrafficSettings(careerMPTrafficSettings)
-        setGameplaySettings(careerMPGameplaySettings)
+	if state.state == "career" then --if the state is changed to career
+
 	end
+end
+
+local function onServerLeave()
+	setTrafficSettings(userTrafficSettings)
+	setGameplaySettings(userGameplaySettings)
 end
 
 local function onCareerActive(active) --when a player loads a save file manually while in a server
@@ -1188,6 +1189,8 @@ M.onUpdate = onUpdate
 
 M.onExtensionLoaded = onExtensionLoaded
 M.onExtensionUnloaded = onExtensionUnloaded
+
+M.onServerLeave = onServerLeave
 
 M.onInit = function() setExtensionUnloadMode(M, 'manual') end
 
