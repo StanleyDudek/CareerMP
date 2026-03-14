@@ -439,20 +439,18 @@ local function makeRepairClaim(invVehId, costs, vehInfo)
     vehInfo = career_modules_inventory.getVehicles()[invVehId]
   end
   local totalCost = 0
-  if costs then
-    if costs.deductible then
-      if costs.deductible.vouchers then
-        if costs.deductible.vouchers.amount > 0 then
-          totalCost = 0
-        end
-      elseif costs.deductible.money then
-        if costs.deductible.money.amount then
-          totalCost = costs.deductible.money.amount
-        end
-      else
-        for _, cost in pairs(costs) do
-          totalCost = totalCost + cost
-        end
+
+  if costs and costs.deductible then
+    local deductible = costs.deductible
+    if type(deductible) == "table" then
+      if deductible.vouchers and deductible.vouchers.amount > 0 then
+        totalCost = 0
+      elseif deductible.money and deductible.money.amount then
+        totalCost = deductible.money.amount
+      end
+    elseif type(deductible) == "number" then
+      for _, cost in pairs(costs) do
+        totalCost = totalCost + cost
       end
     end
   end
