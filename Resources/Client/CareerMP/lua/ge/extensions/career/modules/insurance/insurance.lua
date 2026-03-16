@@ -445,8 +445,10 @@ local function makeRepairClaim(invVehId, costs, vehInfo)
     if type(deductible) == "table" then
       if deductible.vouchers and deductible.vouchers.amount > 0 then
         totalCost = 0
+        costs.deductible = 0
       elseif deductible.money and deductible.money.amount then
         totalCost = deductible.money.amount
+        costs.deductible = deductible.money.amount
       end
     elseif type(deductible) == "number" then
       for _, cost in pairs(costs) do
