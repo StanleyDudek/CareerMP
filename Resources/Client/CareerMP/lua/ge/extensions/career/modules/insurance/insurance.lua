@@ -457,7 +457,7 @@ local function makeRepairClaim(invVehId, costs, vehInfo)
     end
   end
 
-  local insuranceId = invVehs[invVehId].id
+  local insuranceId = invVehs[invVehId].insuranceId
   local hasUsedAccidentForgiveness = false
 
   if plInsurancesData[insuranceId].accidentForgiveness > 0 then
