@@ -18,6 +18,9 @@ local originalGetDriverData --a variable that will eventually hold the original 
 
 local missionUIToResolve = false
 
+local pendingPaints = {}
+local ensuredPartConditionsByVeh = {}
+
 local paymentAllowed = false
 local paymentTimer = 0
 local paymentTimerThreshold = 2.125
@@ -574,11 +577,257 @@ local function rxClearAll() --received when a remote client's drag data have bee
 		driverLightObj:setHidden(true)
 	end
 	clearLights()
-  	clearDisplay()
+	clearDisplay()
 	gameplay_drag_general.unloadRace()
 end
 
---Vehicles
+--Vehicles and part paints
+
+local function clampHelper(value)
+	return clamp(tonumber(value) or 0, 0, 1)
+end
+
+local function copyPaint(paint)
+	local base = paint.baseColor or {}
+	return {
+		baseColor = {
+			base[1] or 1,
+			base[2] or 1,
+			base[3] or 1,
+			base[4] or 1
+		},
+		metallic = paint.metallic or 0,
+		roughness = paint.roughness or 0.5,
+		clearcoat = paint.clearcoat or 0,
+		clearcoatRoughness = paint.clearcoatRoughness or 0
+	}
+end
+
+local function sanitizePaint(paint)
+	local sanitized = copyPaint(paint) or {}
+	validateVehiclePaint(sanitized)
+	local base = sanitized.baseColor or {}
+	sanitized.baseColor = {
+		clampHelper(base[1]),
+		clampHelper(base[2]),
+		clampHelper(base[3]),
+		clampHelper(base[4] or 1)
+	}
+	sanitized.metallic = clampHelper(sanitized.metallic)
+	sanitized.roughness = clampHelper(sanitized.roughness)
+	sanitized.clearcoat = clampHelper(sanitized.clearcoat)
+	sanitized.clearcoatRoughness = clampHelper(sanitized.clearcoatRoughness)
+	return sanitized
+end
+
+local function sanitizePaints(paints)
+	local sanitized = {}
+	local lastPaint = nil
+	for i = 1, 3 do
+		local paint = paints[i] or lastPaint or paints[1]
+		if not paint then
+			break
+		end
+		local sanitizedPaint = sanitizePaint(paint)
+		if not sanitizedPaint then
+			break
+		end
+		sanitized[i] = sanitizedPaint
+		lastPaint = paint
+	end
+	if tableIsEmpty(sanitized) then
+		return nil
+	end
+	if not sanitized[2] then
+		sanitized[2] = copyPaint(sanitized[1])
+	end
+	if not sanitized[3] then
+		sanitized[3] = copyPaint(sanitized[2] or sanitized[1])
+	end
+	return sanitized
+end
+
+local function formatNumberLiteral(value)
+	local num = tonumber(value) or 0
+	if math.abs(num) < 1e-6 then
+		num = 0
+	end
+	return string.format('%.6f', num)
+end
+
+local function paintsToLuaLiteral(paints)
+	if tableIsEmpty(paints) then
+		return '{ {baseColor={1.000000,1.000000,1.000000,1.000000},metallic=0.000000,roughness=0.500000,clearcoat=0.000000,clearcoatRoughness=0.000000} }'
+	end
+	local segments = {}
+	for i = 1, #paints do
+		local paint = paints[i] or {}
+		local base = paint.baseColor or {}
+		segments[#segments + 1] = string.format(
+		'{baseColor={%s,%s,%s,%s},metallic=%s,roughness=%s,clearcoat=%s,clearcoatRoughness=%s}',
+		formatNumberLiteral(base[1] or 0),
+		formatNumberLiteral(base[2] or 0),
+		formatNumberLiteral(base[3] or 0),
+		formatNumberLiteral(base[4] or 1),
+		formatNumberLiteral(paint.metallic or 0),
+		formatNumberLiteral(paint.roughness or 0),
+		formatNumberLiteral(paint.clearcoat or 0),
+		formatNumberLiteral(paint.clearcoatRoughness or 0)
+		)
+	end
+	return '{' .. table.concat(segments, ',') .. '}'
+end
+
+local function identifiersToLuaLiteral(identifiers)
+	if type(identifiers) ~= "table" or tableIsEmpty(identifiers) then
+		return "{}"
+	end
+	local segments = {}
+	for i = 1, #identifiers do
+		local identifier = identifiers[i]
+		if identifier and identifier ~= '' then
+		segments[#segments + 1] = string.format('%q', identifier)
+		end
+	end
+	if tableIsEmpty(segments) then
+		return '{}'
+	end
+	return '{' .. table.concat(segments, ',') .. '}'
+end
+
+local function buildIdentifiers(partPath, partName, slotPath)
+	local ids = {}
+	if partPath and partPath ~= "" then
+		ids[#ids + 1] = partPath
+	end
+	if partName and partName ~= "" and partName ~= partPath then
+		ids[#ids + 1] = partName
+	end
+	if slotPath and slotPath ~= "" then
+		ids[#ids + 1] = slotPath
+	end
+	return ids
+end
+
+local function ensureVehiclePartConditionInitialized(vehObj, gameVehicleID)
+	if not vehObj or not vehObj.queueLuaCommand then return end
+	local id = gameVehicleID or (vehObj.getID and vehObj:getID())
+	if not id or id == -1 then return end
+	if ensuredPartConditionsByVeh[id] then return end
+
+	local ensureCmd = [=[if partCondition and partCondition.ensureConditionsInit then
+		local ok, err = pcall(partCondition.ensureConditionsInit, 0, 1, 1)
+		if not ok then
+			log('W', 'perPartPainting', string.format('ensureConditionsInit preflight failed for vehicle %s: %s', tostring(obj:getID()), tostring(err)))
+		end
+	end]=]
+	vehObj:queueLuaCommand(ensureCmd)
+	ensuredPartConditionsByVeh[id] = true
+end
+
+local function queuePartPaintCommands(vehObj, identifiers, paints)
+	if not vehObj or not paints or not identifiers or #identifiers == 0 then
+		return
+	end
+	local command = string.format([[
+		local identifiers = %s
+		local paints = %s
+		if partCondition then
+			if partCondition.ensureConditionsInit then
+				local ok, err = pcall(partCondition.ensureConditionsInit, 0, 1, 1)
+				if not ok then
+					log('W', 'perPartPainting', 'ensureConditionsInit failed: ' .. tostring(err))
+				end
+			end
+			if partCondition.setPartPaints then
+				for _, identifier in ipairs(identifiers) do
+					local ok, err = pcall(partCondition.setPartPaints, identifier, paints, 0)
+					if ok then break end
+					log('W', 'perPartPainting', string.format('setPartPaints failed for %%s: %%s', tostring(identifier), tostring(err)))
+				end
+			else
+				log('E', 'perPartPainting', 'partCondition.setPartPaints unavailable')
+			end
+		else
+			log('E', 'perPartPainting', 'partCondition module unavailable')
+		end
+		]],
+		identifiersToLuaLiteral(identifiers),
+		paintsToLuaLiteral(paints)
+	)
+	vehObj:queueLuaCommand(command)
+end
+
+local function setPartPaintRemote(gameVehicleID, partPath, paints, partName, slotPath)
+	if not gameVehicleID or not paints then
+		return
+	end
+	local vehObj = be:getObjectByID(gameVehicleID)
+	if not vehObj then
+		return
+	end
+	paints = sanitizePaints(paints)
+	if not paints then
+		return
+	end
+	local identifiers = buildIdentifiers(partPath, partName, slotPath)
+	if #identifiers == 0 then
+		return
+	end
+	ensureVehiclePartConditionInitialized(vehObj, gameVehicleID)
+	queuePartPaintCommands(vehObj, identifiers, paints)
+end
+
+local function applyPartPaintRemote(data)
+	setPartPaintRemote(
+		data.gameVehicleID,
+		data.partPath,
+		data.paints,
+		data.partName,
+		data.slotPath
+	)
+end
+
+local function sendPartPaints(inventoryId, serverVehicleID, originID)
+	local partConditions = career_modules_inventory.getVehicles()[inventoryId].partConditions
+	for part, partData in pairs(partConditions) do
+		if partData.visualState then
+			local data = {}
+			data.partPath = part
+			data.slotPath, data.partName = string.match(data.partPath, "(.*/)([^/]+)$")
+			data.paints = partData.visualState.paint.originalPaints
+			data.serverVehicleID = serverVehicleID
+			if originID	then
+				data.originID = originID
+			end
+			TriggerServerEvent("perPartPainting", jsonEncode(data))
+		end
+	end
+end
+
+local function onInventorySpawnVehicle(inventoryId, gameVehicleID)
+	if gameVehicleID then
+		sendPartPaints(inventoryId, MPVehicleGE.getServerVehicleID(gameVehicleID))
+	else
+		table.insert(pendingPaints, inventoryId)
+	end
+end
+
+local function rxRemotePartPaint(data)
+	local paintData = jsonDecode(data)
+	paintData.gameVehicleID = MPVehicleGE.getGameVehicleID(paintData.serverVehicleID)
+	applyPartPaintRemote(paintData)
+end
+
+local function rxRequestPartPaints(data)
+	local requestData = jsonDecode(data)
+	local gameVehicleID = MPVehicleGE.getGameVehicleID(requestData.serverVehicleID)
+	local inventoryId = career_modules_inventory.getInventoryIdFromVehicleId(gameVehicleID)
+	if not inventoryId then
+		return
+	end
+	sendPartPaints(inventoryId, requestData.serverVehicleID, requestData.originID)
+end
 
 local function rxCareerVehSync(data) --called when activate states of vehicles changed, or provided to a client when joining so the start with the correct active states
 	if data ~= "null" then
@@ -647,6 +896,12 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 			else
 				vehicles[serverVehicleID].hideNametag = false --or don't
 			end
+			TriggerServerEvent("requestPartPaints", jsonEncode({serverVehicleID = serverVehicleID}))
+		else
+			local inventoryId = career_modules_inventory.getInventoryIdFromVehicleId(gameVehicleID)
+			if inventoryId then
+				sendPartPaints(inventoryId, serverVehicleID)
+			end
 		end
 	end
 end
@@ -660,6 +915,10 @@ local function onVehicleSwitched(oldGameVehicleID, newGameVehicleID) --called by
 			end
 		end
 	end
+end
+
+local function onVehicleDestroyed(vehId)
+	ensuredPartConditionsByVeh[vehId] = nil
 end
 
 --Traffic
@@ -688,27 +947,27 @@ local function setGameplaySettings(gameplaySettings)
 end
 
 local function onSpeedTrapTriggered(speedTrapData, playerSpeed, overSpeed) --called by base game when a player drives through a speed trap at sufficiently high speed, we collect the data and sent it to the server, which will broadcast the event to remote clients as a notification
-    if MPVehicleGE.isOwn(speedTrapData.subjectID) then
-        local veh = be:getObjectByID(speedTrapData.subjectID)
-        local highscore, leaderboard = gameplay_speedTrapLeaderboards.addRecord(speedTrapData, playerSpeed, overSpeed, veh)
-        speedTrapData.licensePlate = veh:getDynDataFieldbyName("licenseText", 0) or "Illegible"
-        speedTrapData.vehicleModel = core_vehicles.getModel(veh.JBeam).model.Name
-        speedTrapData.playerSpeed = playerSpeed
-        speedTrapData.overSpeed = overSpeed
-        speedTrapData.highscore = highscore
-        speedTrapData.leaderboard = leaderboard
-        TriggerServerEvent("speedTrap", jsonEncode( speedTrapData ) )
-    end
+	if MPVehicleGE.isOwn(speedTrapData.subjectID) then
+		local veh = be:getObjectByID(speedTrapData.subjectID)
+		local highscore, leaderboard = gameplay_speedTrapLeaderboards.addRecord(speedTrapData, playerSpeed, overSpeed, veh)
+		speedTrapData.licensePlate = veh:getDynDataFieldbyName("licenseText", 0) or "Illegible"
+		speedTrapData.vehicleModel = core_vehicles.getModel(veh.JBeam).model.Name
+		speedTrapData.playerSpeed = playerSpeed
+		speedTrapData.overSpeed = overSpeed
+		speedTrapData.highscore = highscore
+		speedTrapData.leaderboard = leaderboard
+		TriggerServerEvent("speedTrap", jsonEncode( speedTrapData ) )
+	end
 end
 
 local function onRedLightCamTriggered(redLightData, playerSpeed) --called by base game when a player drives through a red light at an intersection with a red light camera, we collect the data and sent it to the server, which will broadcast the event to remote clients as a notification
-    if MPVehicleGE.isOwn(redLightData.subjectID) then
-        local veh = be:getObjectByID(redLightData.subjectID)
-        redLightData.licensePlate = veh:getDynDataFieldbyName("licenseText", 0) or "Illegible"
-        redLightData.vehicleModel = core_vehicles.getModel(veh.JBeam).model.Name
-        redLightData.playerSpeed = playerSpeed
-        TriggerServerEvent("redLight", jsonEncode( redLightData ) )
-    end
+	if MPVehicleGE.isOwn(redLightData.subjectID) then
+		local veh = be:getObjectByID(redLightData.subjectID)
+		redLightData.licensePlate = veh:getDynDataFieldbyName("licenseText", 0) or "Illegible"
+		redLightData.vehicleModel = core_vehicles.getModel(veh.JBeam).model.Name
+		redLightData.playerSpeed = playerSpeed
+		TriggerServerEvent("redLight", jsonEncode( redLightData ) )
+	end
 end
 
 local function rxTrafficSignalTimer(data) --called by the server on an interval, data is a server based time value, this keeps traffic signals for all clients in sync
@@ -872,78 +1131,78 @@ end
 --State and UI Apps
 
 local function findApp(layout, name)
-    for i, app in ipairs(layout.apps) do
-        if app.appName == name then
-            return i, app
-        end
-    end
+	for i, app in ipairs(layout.apps) do
+		if app.appName == name then
+			return i, app
+		end
+	end
 end
 
 local function ensureApp(layout, appData)
-    local firstIndex = nil
-    local removed = false
-    for i = #layout.apps, 1, -1 do
-        local app = layout.apps[i]
-        if app.appName == appData.appName then
-            if not firstIndex then
-                firstIndex = i
-            else
-                table.remove(layout.apps, i)
-                removed = true
-            end
-        end
-    end
-    if not firstIndex then
-        table.insert(layout.apps, deepcopy(appData))
-        return true
-    end
-    return removed
+	local firstIndex = nil
+	local removed = false
+	for i = #layout.apps, 1, -1 do
+		local app = layout.apps[i]
+		if app.appName == appData.appName then
+			if not firstIndex then
+				firstIndex = i
+			else
+				table.remove(layout.apps, i)
+				removed = true
+			end
+		end
+	end
+	if not firstIndex then
+		table.insert(layout.apps, deepcopy(appData))
+		return true
+	end
+	return removed
 end
 
 local function replaceApp(layout, oldName, newApp)
-    local i = findApp(layout, oldName)
-    if i then
-        layout.apps[i] = deepcopy(newApp)
-        return true
-    end
+	local i = findApp(layout, oldName)
+	if i then
+		layout.apps[i] = deepcopy(newApp)
+		return true
+	end
 end
 
 local function loadLayout(customDir, defaultDir, filename)
-    local custom = jsonReadFile(customDir .. filename .. ".uilayout.json")
-    if custom then
-        return deepcopy(custom), customDir
-    end
-    local default = jsonReadFile(defaultDir .. filename .. ".uilayout.json")
-    if default then
-        return deepcopy(default), customDir
-    end
+	local custom = jsonReadFile(customDir .. filename .. ".uilayout.json")
+	if custom then
+		return deepcopy(custom), customDir
+	end
+	local default = jsonReadFile(defaultDir .. filename .. ".uilayout.json")
+	if default then
+		return deepcopy(default), customDir
+	end
 end
 
 local function checkUIApps(state)
-    local mpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "careermp.uilayout.json")
-    if mpLayout then
-        for _, app in pairs(mpLayout.apps) do
-            multiplayerApps[app.appName] = app
-        end
-    end
-    local layoutInfo = defaultLayouts[state.appLayout] or missionLayouts[state.appLayout]
-    if not layoutInfo then
+	local mpLayout = jsonReadFile(userDefaultAppLayoutDirectory .. "careermp.uilayout.json")
+	if mpLayout then
+		for _, app in pairs(mpLayout.apps) do
+			multiplayerApps[app.appName] = app
+		end
+	end
+	local layoutInfo = defaultLayouts[state.appLayout] or missionLayouts[state.appLayout]
+	if not layoutInfo then
 		return
 	end
-    local customDir = defaultLayouts[state.appLayout] and userDefaultAppLayoutDirectory or userMissionAppLayoutDirectory    local defaultDir = defaultLayouts[state.appLayout] and defaultAppLayoutDirectory or missionAppLayoutDirectory
-    local layout, saveDir = loadLayout(customDir, defaultDir, layoutInfo.filename)
-    if not layout then
+	local customDir = defaultLayouts[state.appLayout] and userDefaultAppLayoutDirectory or userMissionAppLayoutDirectory    local defaultDir = defaultLayouts[state.appLayout] and defaultAppLayoutDirectory or missionAppLayoutDirectory
+	local layout, saveDir = loadLayout(customDir, defaultDir, layoutInfo.filename)
+	if not layout then
 		return
 	end
-    local updated = false
+	local updated = false
 	updated = ensureApp(layout, multiplayerApps.multiplayerchat) or updated
 	updated = ensureApp(layout, multiplayerApps.multiplayersession) or updated
 	updated = replaceApp(layout, "multiplayerplayerlist", multiplayerApps.careermpplayerlist) or updated
 	updated = ensureApp(layout, multiplayerApps.careermpplayerlist) or updated
-    if updated then
-        jsonWriteFile(saveDir .. layoutInfo.filename .. ".uilayout.json", layout, 1)
+	if updated then
+		jsonWriteFile(saveDir .. layoutInfo.filename .. ".uilayout.json", layout, 1)
 		stateToUpdate = true
-    end
+	end
 end
 
 local function onGameStateUpdate(state) --called by the base game any time the gamestate changes
@@ -1124,6 +1383,17 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
 		end
+		for i = #pendingPaints, 1, -1 do
+			local entry = pendingPaints[i]
+			local gameVehicleID = career_modules_inventory.getVehicleIdFromInventoryId(entry)
+			if gameVehicleID then
+				local serverID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+				if serverID then
+					sendPartPaints(entry, serverID)
+					table.remove(pendingPaints, i)
+				end
+			end
+		end
 	end
 end
 
@@ -1145,6 +1415,8 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	AddEventHandler("rxCareerSync", rxCareerSync)
 	AddEventHandler("rxCareerVehSync", rxCareerVehSync)
 	AddEventHandler("rxTrafficSignalTimer", rxTrafficSignalTimer)
+	AddEventHandler("rxRequestPartPaints", rxRequestPartPaints)
+	AddEventHandler("rxRemotePartPaint", rxRemotePartPaint)
 	career_career = extensions.career_careerMP --replace stock career lua with my modified careerMP lua
 	log('W', 'careerMP', 'CareerMP Enabler LOADED!')
 end
@@ -1158,6 +1430,8 @@ end
 
 --Access
 
+M.onInventorySpawnVehicle = onInventorySpawnVehicle
+
 M.onCareerActive = onCareerActive
 
 M.payPlayer = payPlayer
@@ -1166,6 +1440,7 @@ M.onVehicleActiveChanged = onVehicleActiveChanged
 M.onVehicleSpawned = onVehicleSpawned
 M.onVehicleReady = onVehicleReady
 M.onVehicleSwitched = onVehicleSwitched
+M.onVehicleDestroyed = onVehicleDestroyed
 
 M.onSpeedTrapTriggered = onSpeedTrapTriggered
 M.onRedLightCamTriggered = onRedLightCamTriggered

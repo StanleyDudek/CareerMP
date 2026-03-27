@@ -27,6 +27,9 @@ local trapNames = {
 }
 
 function onInit()
+	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
+	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
+
 	MP.RegisterEvent("payPlayer","payPlayer")
 
 	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
@@ -52,6 +55,26 @@ function onInit()
 	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
+end
+
+function perPartPaintingHandler(player_id, data)
+    local paintData = Util.JsonDecode(data)
+	if not paintData.originID then
+		for id in pairs(MP.GetPlayers()) do
+			if player_id ~= id then
+				MP.TriggerClientEvent(id, "rxRemotePartPaint", data)
+			end
+		end
+	else
+		MP.TriggerClientEvent(paintData.originID, "rxRemotePartPaint", data)
+	end
+end
+
+function requestPartPaintsHandler(player_id, data)
+    local requestData = Util.JsonDecode(data)
+	local targetID = tonumber(requestData.serverVehicleID:sub(1,1))
+	requestData.originID = player_id
+	MP.TriggerClientEventJson(targetID, "rxRequestPartPaints", requestData)
 end
 
 local function getOrCreate(ledger, player_id)
