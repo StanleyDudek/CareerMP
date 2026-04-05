@@ -19,6 +19,7 @@ local originalGetDriverData --a variable that will eventually hold the original 
 local missionUIToResolve = false
 
 local pendingPaints = {}
+local pendingRemotePaints = {}
 local ensuredPartConditionsByVeh = {}
 
 local paymentAllowed = false
@@ -710,11 +711,16 @@ local function buildIdentifiers(partPath, partName, slotPath)
 end
 
 local function ensureVehiclePartConditionInitialized(vehObj, gameVehicleID)
-	if not vehObj or not vehObj.queueLuaCommand then return end
+	if not vehObj or not vehObj.queueLuaCommand then
+		return
+	end
 	local id = gameVehicleID or (vehObj.getID and vehObj:getID())
-	if not id or id == -1 then return end
-	if ensuredPartConditionsByVeh[id] then return end
-
+	if not id or id == -1 then
+		return
+	end
+	if ensuredPartConditionsByVeh[id] then
+		return
+	end
 	local ensureCmd = [=[if partCondition and partCondition.ensureConditionsInit then
 		local ok, err = pcall(partCondition.ensureConditionsInit, 0, 1, 1)
 		if not ok then
@@ -807,7 +813,14 @@ end
 
 local function onInventorySpawnVehicle(inventoryId, gameVehicleID)
 	if gameVehicleID then
-		sendPartPaints(inventoryId, MPVehicleGE.getServerVehicleID(gameVehicleID))
+		local vehicles = MPVehicleGE.getVehicles()
+		for serverVehicleID, vehicleData in pairs(vehicles) do
+			if vehicleData.gameVehicleID and vehicleData.gameVehicleID == gameVehicleID then
+				sendPartPaints(inventoryId, serverVehicleID)
+			else
+				table.insert(pendingPaints, inventoryId)
+			end
+		end
 	else
 		table.insert(pendingPaints, inventoryId)
 	end
@@ -815,8 +828,14 @@ end
 
 local function rxRemotePartPaint(data)
 	local paintData = jsonDecode(data)
-	paintData.gameVehicleID = MPVehicleGE.getGameVehicleID(paintData.serverVehicleID)
-	applyPartPaintRemote(paintData)
+	if paintData.serverVehicleID then
+		if MPVehicleGE.getVehicles()[paintData.serverVehicleID] then
+			paintData.gameVehicleID = MPVehicleGE.getGameVehicleID(paintData.serverVehicleID)
+			applyPartPaintRemote(paintData)
+		else
+			pendingRemotePaints[paintData.gameVehicleID] = paintData
+		end
+	end
 end
 
 local function rxRequestPartPaints(data)
@@ -1252,8 +1271,17 @@ local function computerMenuHandler(targetVehicleID) --called after a vehicle has
 	end
 end
 
-local function onPartShoppingStarted(targetVehicleID)
+local function onPartShoppingStarted(targetVehicleID, inventoryId)
 	computerMenuHandler(targetVehicleID)
+	if inventoryId then
+		local gameVehicleID = career_modules_inventory.getVehicleIdFromInventoryId(inventoryId)
+		if gameVehicleID then
+			local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+			if serverVehicleID then
+				sendPartPaints(inventoryId, serverVehicleID)
+			end
+		end
+	end
 end
 
 local function onRepairInGarage(invVehId, targetVehicleID)
@@ -1282,6 +1310,30 @@ end
 
 local function onPerformanceTestStarted(targetVehicleID)
 	computerMenuHandler(targetVehicleID)
+end
+
+local function onPartShoppingPartInstalled(partData)
+	if partData.inventoryId then
+		local gameVehicleID = career_modules_inventory.getVehicleIdFromInventoryId(partData.inventoryId)
+		if gameVehicleID then
+			local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+			if serverVehicleID then
+				sendPartPaints(partData.inventoryId, serverVehicleID)
+			end
+		end
+	end
+end
+
+local function onPartShoppingTransactionComplete(inventoryId)
+	if inventoryId then
+		local gameVehicleID = career_modules_inventory.getVehicleIdFromInventoryId(inventoryId)
+		if gameVehicleID then
+			local serverVehicleID = MPVehicleGE.getServerVehicleID(gameVehicleID)
+			if serverVehicleID then
+				sendPartPaints(inventoryId, serverVehicleID)
+			end
+		end
+	end
 end
 
 --Patch BeamMP behavior and topBar
@@ -1365,6 +1417,13 @@ local function onClientPostStartMission(levelPath) --called by base game once th
 	patchTopBar() --patch the top bar to remove freeroam menu items
 end
 
+local function onConditionCheckCallback(gameVehicleID)
+	if pendingRemotePaints[gameVehicleID] then
+		applyPartPaintRemote(pendingRemotePaints[gameVehicleID].paintData)
+		table.remove(pendingRemotePaints, gameVehicleID)
+	end
+end
+
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	paymentTimer = paymentTimer + dtReal
 	if paymentTimer > paymentTimerThreshold then
@@ -1383,14 +1442,38 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			ui_apps.requestUIAppsData() --refresh the ui apps
 			stateToUpdate = false --set to false until next change
 		end
+		local vehicles
 		for i = #pendingPaints, 1, -1 do
 			local entry = pendingPaints[i]
 			local gameVehicleID = career_modules_inventory.getVehicleIdFromInventoryId(entry)
 			if gameVehicleID then
-				local serverID = MPVehicleGE.getServerVehicleID(gameVehicleID)
-				if serverID then
-					sendPartPaints(entry, serverID)
-					table.remove(pendingPaints, i)
+				vehicles = MPVehicleGE.getVehicles()
+				for serverVehicleID, vehicleData in pairs(vehicles) do
+					if vehicleData.gameVehicleID == gameVehicleID then
+						sendPartPaints(entry, serverVehicleID)
+						table.remove(pendingPaints, i)
+					end
+				end
+			end
+		end
+		for gameVehicleID, paintData in pairs(pendingRemotePaints) do
+			if paintData.serverVehicleID then
+				local veh = be:getObjectByID(gameVehicleID)
+				if veh then
+					veh:queueLuaCommand('careerMPEnabler.onConditionCheck()')
+				end
+			else
+				vehicles = MPVehicleGE.getVehicles()
+				for serverVehicleID, vehicleData in pairs(vehicles) do
+					if vehicleData.gameVehicleID == gameVehicleID then
+						paintData.serverVehicleID = serverVehicleID
+					end
+					if paintData.serverVehicleID then
+						local veh = be:getObjectByID(gameVehicleID)
+						if veh then
+							veh:queueLuaCommand('careerMPEnabler.onConditionCheck()')
+						end
+					end
 				end
 			end
 		end
@@ -1430,6 +1513,8 @@ end
 
 --Access
 
+M.onConditionCheckCallback = onConditionCheckCallback
+
 M.onInventorySpawnVehicle = onInventorySpawnVehicle
 
 M.onCareerActive = onCareerActive
@@ -1450,6 +1535,8 @@ M.onGameStateUpdate = onGameStateUpdate
 
 M.onCareerTuningStarted = onCareerTuningStarted
 M.onPartShoppingStarted = onPartShoppingStarted
+M.onPartShoppingPartInstalled = onPartShoppingPartInstalled
+M.onPartShoppingTransactionComplete = onPartShoppingTransactionComplete
 M.onPerformanceTestStarted = onPerformanceTestStarted
 M.onRepairInGarage = onRepairInGarage
 M.onVehicleRepairDelayed = onVehicleRepairDelayed
