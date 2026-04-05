@@ -393,7 +393,7 @@ local function startShoppingActual(_originComputerId)
   end
 
   core_vehicleBridge.executeAction(getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(previewVehicle.id)),'setFreeze', true)
-  extensions.hook("onPartShoppingStarted", getCurrentVehicleVehId())
+  extensions.hook("onPartShoppingStarted", getCurrentVehicleVehId(), currentVehicle)
 end
 
 local function setupTether()
@@ -712,7 +712,7 @@ local function installPart(part)
   newParts[part.containingSlot] = part
   updateInstalledParts(newParts)
 
-  extensions.hook("onPartShoppingPartInstalled", {part = part})
+  extensions.hook("onPartShoppingPartInstalled", {part = part, inventoryId = currentVehicle or career_modules_inventory.getCurrentVehicleId()})
 end
 
 local function installPartByPartShopId(partShopId)
@@ -834,7 +834,7 @@ local function applyShopping()
 
   Engine.Audio.playOnce('AudioGui','event:>UI>Career>Buy_01')
   core_vehicleBridge.executeAction(getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(previewVehicle.id)),'setFreeze', false)
-  extensions.hook("onPartShoppingTransactionComplete")
+  extensions.hook("onPartShoppingTransactionComplete", currentVehicle)
 end
 
 local function isShoppingSessionActive()
