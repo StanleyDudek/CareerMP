@@ -362,11 +362,19 @@ local function createTreeLights(lane, prefabId)
 end
 
 local function initTree()
+	if not dragData then
+		return {}
+	end
+	if not dragData.strip then
+		return {}
+	end
+	if not dragData.strip.lanes or #dragData.strip.lanes == 0 then
+		return {}
+	end
 	local prefabId = nil
 	if dragData and dragData.prefabs and dragData.prefabs.christmasTree then
 		prefabId = dragData.prefabs.christmasTree.prefabId
 	end
-
 	local treeLights = {}
 	for laneIndex = 1, #dragData.strip.lanes do
 		treeLights[laneIndex] = createTreeLights(laneIndex, prefabId)
@@ -375,10 +383,10 @@ local function initTree()
 end
 
 local function updateTreeLightsUI(vehId, changes)
-	if not changes then
-		return
-	end
-	if not vehId then
+	if not changes then return end
+
+	-- Always send to UI, even if tree objects don't exist
+	if not vehId or vehId == be:getPlayerVehicleID(0) then
 		guihooks.trigger("updateTreeLightApp", changes)
 	end
 end
@@ -393,16 +401,13 @@ local function initDisplay()
 	for i=1, 5 do
 		local timeDigit = scenetree.findObject("display_time_" .. i .. "_r")
 		table.insert(time, timeDigit)
-
 		local speedDigit = scenetree.findObject("display_speed_" .. i .. "_r")
 		table.insert(speed, speedDigit)
 	end
 	table.insert(displayDigits.timeDigits, time)
 	table.insert(displayDigits.speedDigits, speed)
-
 	time = {}
 	speed = {}
-
 	for i=1, 5 do
 		local timeDigit = scenetree.findObject("display_time_" .. i .. "_l")
 		table.insert(time, timeDigit)
@@ -412,7 +417,6 @@ local function initDisplay()
 	end
 	table.insert(displayDigits.timeDigits, time)
 	table.insert(displayDigits.speedDigits, speed)
-
 	if not displayDigits then
 		return
 	end
@@ -420,19 +424,17 @@ local function initDisplay()
 end
 
 local function clearLights()
-	if not dragData then
-		return
-	end
+	if not dragData then return end
 	for _, laneTree in ipairs(dragData.strip.treeLights) do
 		for _,group in pairs(laneTree) do
-			if type(group) == "table" then
-				for _,light in pairs(group) do
-					if type(light) == "table" and light.obj then
-						light.obj:setHidden(true)
-						light.isOn = false
-					end
-				end
+		if type(group) == "table" then
+			for _,light in pairs(group) do
+			if type(light) == "table" and light.obj and simObjectExists(light.obj) then
+				light.obj:setHidden(true)
+				light.isOn = false
 			end
+			end
+		end
 		end
 		laneTree.timers.laneTimer = 0
 		laneTree.timers.laneTimerFlag = false
@@ -441,7 +443,7 @@ local function clearLights()
 	updateTreeLightsUI(nil, {
 		stageLights = {
 			prestageLight = false,
-			stageLight = false
+			stageLight = false,
 		},
 		countDownLights = {
 			amberLight1 = false,
@@ -458,20 +460,20 @@ local function clearLights()
 		lane = nil,
 		isBlinking = false,
 		timer = 0,
-		frequency = 1/6,
+		frequency = 1/6, -- 6Hz = 1/6 seconds per cycle
 		isOn = false
 	}
 end
 
 local function clearDisplay()
-	if not dragData then
-		return
-	end
+	if not dragData then return end
 	for _, digitTypeData in pairs(dragData.strip.displayDigits) do
 		for _,laneTypeData in ipairs(digitTypeData) do
-			for _,digit in ipairs(laneTypeData) do
-				digit:setHidden(true)
+		for _,digit in ipairs(laneTypeData) do
+			if digit and simObjectExists(digit) then
+			digit:setHidden(true)
 			end
+		end
 		end
 	end
 end
@@ -509,8 +511,8 @@ local function rxUpdateDisplay(data) --called when a drag display has changed on
 		end
 	end
 	if dragData then
-		dragData.strip.displayDigits = initDisplay()
-		dragData.strip.treeLights = initTree()
+		dragData.strip.treeLights = initTree() or {}
+		dragData.strip.displayDigits = initDisplay() or {}
 		guihooks.trigger('updateTreeLightStaging', true)
 	end
 	local timeDisplayValue = decodedData.timeDisplayValue
@@ -522,14 +524,16 @@ local function rxUpdateDisplay(data) --called when a drag display has changed on
 	speedDigits = dragData.strip.displayDigits.speedDigits[lane]
 	if #timeDisplayValue > 0 and #timeDisplayValue < 6 then
 		for i,v in ipairs(timeDisplayValue) do
-			timeDigits[i]:preApply()
-			timeDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
-			timeDigits[i]:setHidden(false)
-			timeDigits[i]:postApply()
+			if timeDigits[i] and simObjectExists(timeDigits[i]) then
+				timeDigits[i]:preApply()
+				timeDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
+				timeDigits[i]:setHidden(false)
+				timeDigits[i]:postApply()
+			end
 		end
 	end
 	for i,v in ipairs(speedDisplayValue) do
-		if speedDigits and speedDigits[i] then
+		if speedDigits and speedDigits[i] and simObjectExists(speedDigits[i]) then
 			speedDigits[i]:preApply()
 			speedDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
 			speedDigits[i]:setHidden(false)
