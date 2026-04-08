@@ -305,6 +305,12 @@ local function updateDisplay(vehId)
   local lane = dragData.racers[vehId].lane
   local timeVal = dragData.racers[vehId].timers.time_1_4.value
   local velVal = dragData.racers[vehId].timers.velAt_1_4.value
+  local displayVal
+	if settings.getValue('uiUnitLength') == "metric" then
+		displayVal = velVal * 3.6
+	elseif settings.getValue('uiUnitLength') == "imperial" then
+		displayVal = velVal * 2.23694
+	end
 
   -- If display signs are not available, send times to UI app instead
   if not hasDisplayDigits() then
@@ -358,7 +364,7 @@ local function updateDisplay(vehId)
     end
   end
   if MPVehicleGE.isOwn(be:getPlayerVehicleID(0)) then
-    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, velVal = velVal, dragData = dragData } ))
+    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, displayVal = displayVal, dragData = dragData } ))
   end
 end
 
