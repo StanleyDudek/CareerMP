@@ -305,11 +305,11 @@ local function updateDisplay(vehId)
   local lane = dragData.racers[vehId].lane
   local timeVal = dragData.racers[vehId].timers.time_1_4.value
   local velVal = dragData.racers[vehId].timers.velAt_1_4.value
-  local displayVal
+  local velDisplayVal
 	if settings.getValue('uiUnitLength') == "metric" then
-		displayVal = velVal * 3.6
+		velDisplayVal = velVal * 3.6
 	elseif settings.getValue('uiUnitLength') == "imperial" then
-		displayVal = velVal * 2.23694
+		velDisplayVal = velVal * 2.23694
 	end
 
   -- If display signs are not available, send times to UI app instead
@@ -330,7 +330,7 @@ local function updateDisplay(vehId)
     table.insert(timeDisplayValue, "empty")
   end
 
-  if velVal < 100 then
+  if velDisplayVal < 100 then
     table.insert(speedDisplayValue, "empty")
   end
 
@@ -340,7 +340,7 @@ local function updateDisplay(vehId)
   end
 
   -- Two decimal points for speed
-  for num in string.gmatch(string.format("%.2f", velVal), "%d") do
+  for num in string.gmatch(string.format("%.2f", velDisplayVal), "%d") do
     table.insert(speedDisplayValue, num)
   end
 
@@ -364,7 +364,7 @@ local function updateDisplay(vehId)
     end
   end
   if MPVehicleGE.isOwn(be:getPlayerVehicleID(0)) then
-    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, displayVal = displayVal, dragData = dragData } ))
+    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, velVal = velVal, dragData = dragData } ))
   end
 end
 
