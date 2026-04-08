@@ -382,6 +382,47 @@ local function initTree()
 	return treeLights
 end
 
+-- Check if display digits are available (not nil)
+local function hasDisplayDigits()
+  if not dragData or not dragData.strip or not dragData.strip.displayDigits then
+    return false
+  end
+  local digits = dragData.strip.displayDigits
+  if not digits.timeDigits or not digits.speedDigits then
+    return false
+  end
+  -- Check if at least one digit exists
+  for _, laneDigits in ipairs(digits.timeDigits) do
+    if laneDigits and #laneDigits > 0 and laneDigits[1] then
+      return true
+    end
+  end
+  return false
+end
+
+-- Check if tree lights are available (at least one light object exists)
+local function hasTreeLights()
+  if not dragData or not dragData.strip or not dragData.strip.treeLights then
+    return false
+  end
+  for _, laneTree in ipairs(dragData.strip.treeLights) do
+    if laneTree and laneTree.stageLights then
+      -- Check if at least one light object exists
+      for _, light in pairs(laneTree.stageLights) do
+        if light and light.obj then
+          return true
+        end
+      end
+      for _, light in pairs(laneTree.countDownLights) do
+        if light and light.obj then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 local function updateTreeLightsUI(vehId, changes)
 	if not changes then return end
 
@@ -569,6 +610,100 @@ local function rxUpdateWinnerLight(data) --similar to the above, for when the wi
 	end
 end
 
+local function rxUpdateBlueLight(data)
+	local decodedData = jsonDecode(data)
+	if gameplay_drag_general then
+		if not dragData then
+			gameplay_drag_general.setDragRaceData(decodedData.dragData)
+			dragData = gameplay_drag_general.getData()
+		end
+	end
+	if not dragData or not dragData.strip.treeLights or not dragData.strip.treeLights[1] then
+		return
+	end
+	local hasTree = hasTreeLights()
+	local blueLight = dragData.strip.treeLights[1].globalLights.blueLight
+	if hasTree and blueLight.obj and simObjectExists(blueLight.obj) and decodedData.blueLight then
+		blueLight.obj:setHidden(not decodedData.blueLight.isOn)
+	end
+end
+
+local function rxUpdatePreStageLight(data)
+	local decodedData = jsonDecode(data)
+	if gameplay_drag_general then
+		if not dragData then
+			gameplay_drag_general.setDragRaceData(decodedData.dragData)
+			dragData = gameplay_drag_general.getData()
+		end
+	end
+	local gameVehicleID = MPVehicleGE.getGameVehicleID(decodedData.serverVehicleID)
+	if not gameVehicleID or not dragData then return end
+	local laneTree = dragData.strip.treeLights[decodedData.lane]
+	if not laneTree or not laneTree.stageLights then return end
+	local hasTree = hasTreeLights()
+	if hasTree and laneTree.stageLights.prestageLight.obj and simObjectExists(laneTree.stageLights.prestageLight.obj) then
+		laneTree.stageLights.prestageLight.obj:setHidden(not decodedData.isOn)
+	end
+end
+
+local function rxUpdateStageLight(data)
+	local decodedData = jsonDecode(data)
+	if gameplay_drag_general then
+		if not dragData then
+			gameplay_drag_general.setDragRaceData(decodedData.dragData)
+			dragData = gameplay_drag_general.getData()
+		end
+	end
+	local gameVehicleID = MPVehicleGE.getGameVehicleID(decodedData.serverVehicleID)
+	if not gameVehicleID or not dragData then return end
+	local laneTree = dragData.strip.treeLights[decodedData.lane]
+	if laneTree.stageLights.stageLight.obj and simObjectExists(laneTree.stageLights.stageLight.obj) then
+		dragData.strip.treeLights[decodedData.lane].stageLights.stageLight.obj:setHidden(not decodedData.isOn)
+	end
+end
+
+local function rxUpdateDisqualifiedLight(data)
+	local decodedData = jsonDecode(data)
+	if gameplay_drag_general then
+		if not dragData then
+			gameplay_drag_general.setDragRaceData(decodedData.dragData)
+			dragData = gameplay_drag_general.getData()
+		end
+	end
+	local gameVehicleID = MPVehicleGE.getGameVehicleID(decodedData.serverVehicleID)
+	if not dragData or not gameVehicleID then return end
+
+	local treeLights = dragData.strip.treeLights[decodedData.lane]
+	local countDownLights = treeLights.countDownLights
+
+	if countDownLights.amberLight1.obj and simObjectExists(countDownLights.amberLight1.obj) then countDownLights.amberLight1.obj:setHidden(not decodedData.countDownLights.amberLight1.isOn) end
+	if countDownLights.amberLight2.obj and simObjectExists(countDownLights.amberLight2.obj) then countDownLights.amberLight2.obj:setHidden(not decodedData.countDownLights.amberLight2.isOn) end
+	if countDownLights.amberLight3.obj and simObjectExists(countDownLights.amberLight3.obj) then countDownLights.amberLight3.obj:setHidden(not decodedData.countDownLights.amberLight3.isOn) end
+	if countDownLights.greenLight.obj and simObjectExists(countDownLights.greenLight.obj) then countDownLights.greenLight.obj:setHidden(not decodedData.countDownLights.greenLight.isOn) end
+	if countDownLights.redLight.obj and simObjectExists(countDownLights.redLight.obj) then countDownLights.redLight.obj:setHidden(not decodedData.countDownLights.redLight.isOn) end
+end
+
+local function rxUpdateLights(data)
+	local decodedData = jsonDecode(data)
+	if gameplay_drag_general then
+		if not dragData then
+			gameplay_drag_general.setDragRaceData(decodedData.dragData)
+			dragData = gameplay_drag_general.getData()
+		end
+	end
+	local gameVehicleID = MPVehicleGE.getGameVehicleID(decodedData.serverVehicleID)
+	if not dragData or not gameVehicleID then return end
+
+	local treeLights = dragData.strip.treeLights[decodedData.lane]
+	local countDownLights = treeLights.countDownLights
+
+	if countDownLights.amberLight1.obj and simObjectExists(countDownLights.amberLight1.obj) then countDownLights.amberLight1.obj:setHidden(not decodedData.countDownLights.amberLight1.isOn) end
+	if countDownLights.amberLight2.obj and simObjectExists(countDownLights.amberLight2.obj) then countDownLights.amberLight2.obj:setHidden(not decodedData.countDownLights.amberLight2.isOn) end
+	if countDownLights.amberLight3.obj and simObjectExists(countDownLights.amberLight3.obj) then countDownLights.amberLight3.obj:setHidden(not decodedData.countDownLights.amberLight3.isOn) end
+	if countDownLights.greenLight.obj and simObjectExists(countDownLights.greenLight.obj) then countDownLights.greenLight.obj:setHidden(not decodedData.countDownLights.greenLight.isOn) end
+	if countDownLights.redLight.obj and simObjectExists(countDownLights.redLight.obj) then countDownLights.redLight.obj:setHidden(not decodedData.countDownLights.redLight.isOn) end
+end
+
 local function rxClearAll() --received when a remote client's drag data have been cleared, so the local drag data clear
 	if not dragData then
 		dragData = gameplay_drag_general.getData()
@@ -583,7 +718,7 @@ local function rxClearAll() --received when a remote client's drag data have bee
 	end
 	clearLights()
 	clearDisplay()
-	gameplay_drag_general.unloadRace()
+	gameplay_drag_general._clear()
 end
 
 --Vehicles and part paints
@@ -1497,6 +1632,11 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	AddEventHandler("rxDeny", rxDeny)
 	AddEventHandler("rxUpdateDisplay", rxUpdateDisplay)
 	AddEventHandler("rxUpdateWinnerLight", rxUpdateWinnerLight)
+	AddEventHandler("rxUpdateBlueLight", rxUpdateBlueLight)
+	AddEventHandler("rxUpdatePreStageLight", rxUpdatePreStageLight)
+	AddEventHandler("rxUpdateStageLight", rxUpdateStageLight)
+	AddEventHandler("rxUpdateDisqualifiedLight", rxUpdateDisqualifiedLight)
+	AddEventHandler("rxUpdateLights", rxUpdateLights)
 	AddEventHandler("rxClearAll", rxClearAll)
 	AddEventHandler("rxPrefabSync", rxPrefabSync)
 	AddEventHandler("rxCareerSync", rxCareerSync)
