@@ -358,7 +358,7 @@ local function updateDisplay(vehId)
     end
   end
   if MPVehicleGE.isOwn(be:getPlayerVehicleID(0)) then
-    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, dragData = dragData } ))
+    TriggerServerEvent("txUpdateDisplay", jsonEncode( { lane = lane, timeDisplayValue = timeDisplayValue, speedDisplayValue = speedDisplayValue, velVal = velVal, dragData = dragData } ))
   end
 end
 
