@@ -71,6 +71,21 @@ local function createTreeLights(lane, prefabId)
 end
 
 local function initTree()
+  if not dragData then
+    log("W", logTag, "initTree called but dragData is nil")
+    return {}
+  end
+
+  if not dragData.strip then
+    log("W", logTag, "initTree called but dragData.strip is nil")
+    return {}
+  end
+
+  if not dragData.strip.lanes or #dragData.strip.lanes == 0 then
+    log("W", logTag, "initTree called but dragData.strip.lanes is empty or nil")
+    return {}
+  end
+
   local prefabId = nil
   if dragData and dragData.prefabs and dragData.prefabs.christmasTree then
     prefabId = dragData.prefabs.christmasTree.prefabId
@@ -83,8 +98,78 @@ local function initTree()
   return treeLights
 end
 
+-- Check if display digits are available (not nil)
+local function hasDisplayDigits()
+  if not dragData or not dragData.strip or not dragData.strip.displayDigits then
+    return false
+  end
+  local digits = dragData.strip.displayDigits
+  if not digits.timeDigits or not digits.speedDigits then
+    return false
+  end
+  -- Check if at least one digit exists
+  for _, laneDigits in ipairs(digits.timeDigits) do
+    if laneDigits and #laneDigits > 0 and laneDigits[1] then
+      return true
+    end
+  end
+  return false
+end
+
+-- Check if tree lights are available (at least one light object exists)
+local function hasTreeLights()
+  if not dragData or not dragData.strip or not dragData.strip.treeLights then
+    return false
+  end
+  for _, laneTree in ipairs(dragData.strip.treeLights) do
+    if laneTree and laneTree.stageLights then
+      -- Check if at least one light object exists
+      for _, light in pairs(laneTree.stageLights) do
+        if light and light.obj then
+          return true
+        end
+      end
+      for _, light in pairs(laneTree.countDownLights) do
+        if light and light.obj then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
+-- Send times data to UI app when display signs are not available
+local function sendTimesToUI(vehId)
+  if not dragData or not dragData.racers or not dragData.racers[vehId] then
+    return
+  end
+
+  local racer = dragData.racers[vehId]
+  if not racer.isPlayable then
+    return
+  end
+
+  local timers = racer.timers or {}
+  local timesData = {
+    time_1_4 = timers.time_1_4 and timers.time_1_4.value or 0,
+    velAt_1_4 = timers.velAt_1_4 and timers.velAt_1_4.value or 0,
+    reactionTime = timers.reactionTime and timers.reactionTime.value or 0,
+    time_60 = timers.time_60 and timers.time_60.value or 0,
+    time_330 = timers.time_330 and timers.time_330.value or 0,
+    time_1_8 = timers.time_1_8 and timers.time_1_8.value or 0,
+    time_1000 = timers.time_1000 and timers.time_1000.value or 0,
+    velAt_1_8 = timers.velAt_1_8 and timers.velAt_1_8.value or 0,
+    lane = racer.lane
+  }
+
+  guihooks.trigger("updateDragRaceTimes", timesData)
+end
+
 local function updateTreeLightsUI(vehId, changes)
   if not changes then return end
+
+  -- Always send to UI, even if tree objects don't exist
   if not vehId or vehId == be:getPlayerVehicleID(0) then
     guihooks.trigger("updateTreeLightApp", changes)
   end
@@ -129,14 +214,13 @@ end
 
 local function init()
   if dragData then
-    dragData.strip.treeLights = initTree()
-    dragData.strip.displayDigits = initDisplay()
+    dragData.strip.treeLights = initTree() or {}
+    dragData.strip.displayDigits = initDisplay() or {}
     guihooks.trigger('updateTreeLightStaging', true)
   end
 end
 
 local function clearLights()
-  --log("I", logTag, "Clear all the lights")
   rand = math.random() + 2
   stagedAmount = 0
   if not dragData then return end
@@ -144,7 +228,7 @@ local function clearLights()
     for _,group in pairs(laneTree) do
       if type(group) == "table" then
         for _,light in pairs(group) do
-          if type(light) == "table" and light.obj then
+          if type(light) == "table" and light.obj and simObjectExists(light.obj) then
             light.obj:setHidden(true)
             light.isOn = false
           end
@@ -184,12 +268,13 @@ end
 
 
 local function clearDisplay()
-  --log("I", logTag, "Clear all the displays")
   if not dragData then return end
   for _, digitTypeData in pairs(dragData.strip.displayDigits) do
     for _,laneTypeData in ipairs(digitTypeData) do
       for _,digit in ipairs(laneTypeData) do
-        digit:setHidden(true)
+        if digit and simObjectExists(digit) then
+          digit:setHidden(true)
+        end
       end
     end
   end
@@ -217,15 +302,20 @@ local function onExtensionLoaded()
 end
 
 local function updateDisplay(vehId)
+  local lane = dragData.racers[vehId].lane
+  local timeVal = dragData.racers[vehId].timers.time_1_4.value
+  local velVal = dragData.racers[vehId].timers.velAt_1_4.value
+
+  -- If display signs are not available, send times to UI app instead
+  if not hasDisplayDigits() then
+    sendTimesToUI(vehId)
+    return
+  end
+
   local timeDisplayValue = {}
   local speedDisplayValue = {}
   local timeDigits = {}
   local speedDigits = {}
-
-  local lane = dragData.racers[vehId].lane
-
-  local timeVal =  dragData.racers[vehId].timers.time_1_4.value
-  local velVal = dragData.racers[vehId].timers.velAt_1_4.value * 2.237 -- convert from m/s to mph
 
   timeDigits = dragData.strip.displayDigits.timeDigits[lane]
   speedDigits = dragData.strip.displayDigits.speedDigits[lane]
@@ -250,15 +340,17 @@ local function updateDisplay(vehId)
 
   if #timeDisplayValue > 0 and #timeDisplayValue < 6 then
     for i,v in ipairs(timeDisplayValue) do
-      timeDigits[i]:preApply()
-      timeDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
-      timeDigits[i]:setHidden(false)
-      timeDigits[i]:postApply()
+      if timeDigits[i] and simObjectExists(timeDigits[i]) then
+        timeDigits[i]:preApply()
+        timeDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
+        timeDigits[i]:setHidden(false)
+        timeDigits[i]:postApply()
+      end
     end
   end
 
   for i,v in ipairs(speedDisplayValue) do
-    if speedDigits and speedDigits[i] then
+    if speedDigits and speedDigits[i] and simObjectExists(speedDigits[i]) then
       speedDigits[i]:preApply()
       speedDigits[i]:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_".. v ..".dae")
       speedDigits[i]:setHidden(false)
@@ -271,16 +363,22 @@ local function updateDisplay(vehId)
 end
 
 local function handle400TreeLogic(timers, countDownLights, racer, vehId)
+  local hasTree = hasTreeLights()
+
   if timers.laneTimer > rand and not timers.laneTimerFlag then
     timers.laneTimer = 0
     timers.laneTimerFlag = true
 
-    countDownLights.amberLight1.obj:setHidden(false)
-    countDownLights.amberLight2.obj:setHidden(false)
-    countDownLights.amberLight3.obj:setHidden(false)
+    if hasTree then
+      if countDownLights.amberLight1.obj and simObjectExists(countDownLights.amberLight1.obj) then countDownLights.amberLight1.obj:setHidden(false) end
+      if countDownLights.amberLight2.obj and simObjectExists(countDownLights.amberLight2.obj) then countDownLights.amberLight2.obj:setHidden(false) end
+      if countDownLights.amberLight3.obj and simObjectExists(countDownLights.amberLight3.obj) then countDownLights.amberLight3.obj:setHidden(false) end
+    end
     countDownLights.amberLight1.isOn = true
     countDownLights.amberLight2.isOn = true
     countDownLights.amberLight3.isOn = true
+
+    -- Always send to UI, even if tree objects don't exist
     if racer.isPlayable then
       updateTreeLightsUI(vehId, {
         countDownLights = {
@@ -293,16 +391,20 @@ local function handle400TreeLogic(timers, countDownLights, racer, vehId)
   end
 
   if timers.laneTimerFlag and timers.laneTimer >= 0.4 then
-    countDownLights.amberLight1.obj:setHidden(true)
-    countDownLights.amberLight2.obj:setHidden(true)
-    countDownLights.amberLight3.obj:setHidden(true)
-    countDownLights.greenLight.obj:setHidden(racer.isDesqualified)
-    countDownLights.redLight.obj:setHidden(not racer.isDesqualified)
+    if hasTree then
+      if countDownLights.amberLight1.obj and simObjectExists(countDownLights.amberLight1.obj) then countDownLights.amberLight1.obj:setHidden(true) end
+      if countDownLights.amberLight2.obj and simObjectExists(countDownLights.amberLight2.obj) then countDownLights.amberLight2.obj:setHidden(true) end
+      if countDownLights.amberLight3.obj and simObjectExists(countDownLights.amberLight3.obj) then countDownLights.amberLight3.obj:setHidden(true) end
+      if countDownLights.greenLight.obj and simObjectExists(countDownLights.greenLight.obj) then countDownLights.greenLight.obj:setHidden(racer.isDesqualified) end
+      if countDownLights.redLight.obj and simObjectExists(countDownLights.redLight.obj) then countDownLights.redLight.obj:setHidden(not racer.isDesqualified) end
+    end
     countDownLights.amberLight1.isOn = false
     countDownLights.amberLight2.isOn = false
     countDownLights.amberLight3.isOn = false
     countDownLights.greenLight.isOn = not racer.isDesqualified
     countDownLights.redLight.isOn = racer.isDesqualified
+
+    -- Always send to UI, even if tree objects don't exist
     if racer.isPlayable then
       flashMessage("Go!", 5)
       updateTreeLightsUI(vehId, {
@@ -323,6 +425,7 @@ end
 
 local function handle500TreeLogic(timers, countDownLights, racer, vehId)
   local t = timers.laneTimer
+  local hasTree = hasTreeLights()
 
   local lightStages = {
     {1.0, 1.5, "amberLight1", false},
@@ -333,10 +436,13 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
 
   for _, stage in ipairs(lightStages) do
     if t > stage[1] and t < stage[2] then
-
       if countDownLights[stage[3]].isOn == stage[4] then
-        countDownLights[stage[3]].obj:setHidden(stage[4])
+        if hasTree and countDownLights[stage[3]].obj and simObjectExists(countDownLights[stage[3]].obj) then
+          countDownLights[stage[3]].obj:setHidden(stage[4])
+        end
         countDownLights[stage[3]].isOn = not stage[4]
+
+        -- Always send to UI, even if tree objects don't exist
         if racer.isPlayable then
           updateTreeLightsUI(vehId, {
             countDownLights = {
@@ -347,8 +453,12 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
       end
       -- Update secondary light if present and state changed
       if stage[5] and countDownLights[stage[5]].isOn == stage[6] then
-        countDownLights[stage[5]].obj:setHidden(stage[6])
+        if hasTree and countDownLights[stage[5]].obj and simObjectExists(countDownLights[stage[5]].obj) then
+          countDownLights[stage[5]].obj:setHidden(stage[6])
+        end
         countDownLights[stage[5]].isOn = not stage[6]
+
+        -- Always send to UI, even if tree objects don't exist
         if racer.isPlayable then
           updateTreeLightsUI(vehId, {
             countDownLights = {
@@ -365,8 +475,12 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
     racer.treeStarted = false
 
     if countDownLights.greenLight.isOn == racer.isDesqualified then
-      countDownLights.greenLight.obj:setHidden(racer.isDesqualified)
+      if hasTree and countDownLights.greenLight.obj and simObjectExists(countDownLights.greenLight.obj) then
+        countDownLights.greenLight.obj:setHidden(racer.isDesqualified)
+      end
       countDownLights.greenLight.isOn = not racer.isDesqualified
+
+      -- Always send to UI, even if tree objects don't exist
       if racer.isPlayable then
         flashMessage("Go!", 5)
         updateTreeLightsUI(vehId, {
@@ -380,21 +494,74 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
   end
 end
 
-local function onUpdate(dtReal, dtSim, dtRaw)
+-- minimum temporary fix
+-- only for freeroam drag racing, hide the visual UI tree lights if the player is too far away from the start line
+local function checkDisableTreeLightsUI()
+  if not dragData or
+  not dragData.racers or
+  gameplay_drag_general.getGameplayContext() ~= "freeroam"
+  or not ui_gameplayAppContainers.getAppVisibility('gameplayApps', 'drag')
+  then return end
+
   for vehId, racer in pairs(dragData.racers) do
+    if racer.isPlayable then
+      -- Make sure updateRacer has run before checking distance, otherwise distance will be very high for one frame instead of correct
+      if racer.currentDistanceFromOrigin == nil then
+        return
+      end
+
+      gameplay_drag_utils.calculateDistanceOfAllWheelsFromStagePos(racer)
+      local distance = gameplay_drag_utils.getFrontWheelDistanceFromStagePos(racer)
+      if distance and math.abs(distance) > 10 then
+        ui_gameplayAppContainers.hideApp('gameplayApps', 'drag')
+        flashMessage("")
+      end
+      return
+    end
+  end
+end
+
+local function onUpdate(dtReal, dtSim, dtRaw)
+  if not gameplay_drag_general then return end
+
+  dragData = gameplay_drag_general.getData()
+  if not dragData then return end
+
+  -- Early return if drag system is not properly initialized (e.g., during crawl missions)
+  if not dragData.strip or not dragData.strip.treeLights then
+    return
+  end
+
+  if dragData.flashUpdate then
+    local shouldContinue = dragData.flashUpdate(dtSim)
+    if not shouldContinue then
+      dragData.flashUpdate = nil
+    end
+    return -- Skip normal update during flash sequence
+  end
+
+  checkDisableTreeLightsUI()
+
+  for vehId, racer in pairs(dragData.racers) do
+    -- Send times to UI continuously if display signs are not available and racer is in race phase
+    if racer.timersStarted and not hasDisplayDigits() and racer.isPlayable then
+      sendTimesToUI(vehId)
+    end
+
     if racer.treeStarted and not racer.isDesqualified then
       local treeLights = dragData.strip.treeLights[racer.lane]
+      if not treeLights then
+        return
+      end
       local timers = treeLights.timers
       local countDownLights = treeLights.countDownLights
-      if not timers.dialOffset then
-        timers.dialOffset = 0
-      end
+
       timers.dialOffset = timers.dialOffset - dtSim
 
       if timers.dialOffset <= 0 then
         timers.laneTimer = timers.laneTimer + dtSim
 
-        if dragData.prefabs.christmasTree.treeType == ".400" then
+        if dragData.prefabs and dragData.prefabs.christmasTree and dragData.prefabs.christmasTree.treeType == ".400" then
           handle400TreeLogic(timers, countDownLights, racer, vehId)
         else
           handle500TreeLogic(timers, countDownLights, racer, vehId)
@@ -404,8 +571,13 @@ local function onUpdate(dtReal, dtSim, dtRaw)
   end
 
   if driverLightBlinkState.isBlinking then
+    if not dragData.strip.treeLights[driverLightBlinkState.lane] then
+      driverLightBlinkState.isBlinking = false
+      driverLightBlinkState.isOn = false
+      return
+    end
     local driverLight = dragData.strip.treeLights[driverLightBlinkState.lane].stageLights.driverLight
-    if driverLight and driverLight.obj then
+    if driverLight and driverLight.obj and simObjectExists(driverLight.obj) then
       local newTimer = driverLightBlinkState.timer + dtSim
       if newTimer >= driverLightBlinkState.frequency then
         driverLightBlinkState.timer = newTimer % driverLightBlinkState.frequency
@@ -425,11 +597,11 @@ end
 local function onWinnerLightOn(lane)
   if not dragData then return end
   if lane then
-    if dragData.strip.treeLights[lane].stageLights.winnerLight and dragData.strip.treeLights[lane].stageLights.winnerLight.obj then
+    if dragData.strip.treeLights[lane].stageLights.winnerLight and dragData.strip.treeLights[lane].stageLights.winnerLight.obj and simObjectExists(dragData.strip.treeLights[lane].stageLights.winnerLight.obj) then
       dragData.strip.treeLights[lane].stageLights.winnerLight.isOn = true
       dragData.strip.treeLights[lane].stageLights.winnerLight.obj:setHidden(false)
     end
-    if dragData.strip.treeLights[lane].stageLights.driverLight and dragData.strip.treeLights[lane].stageLights.driverLight.obj and not driverLightBlinkState.isBlinking then
+    if dragData.strip.treeLights[lane].stageLights.driverLight and dragData.strip.treeLights[lane].stageLights.driverLight.obj and simObjectExists(dragData.strip.treeLights[lane].stageLights.driverLight.obj) and not driverLightBlinkState.isBlinking then
       dragData.strip.treeLights[lane].stageLights.driverLight.isOn = true
       driverLightBlinkState.lane = lane
       driverLightBlinkState.isBlinking = true
@@ -442,15 +614,20 @@ local function onWinnerLightOn(lane)
 end
 
 local function blueLightOn()
-  -- Check if blue light exists in any lane
-  if not dragData.strip.treeLights[1].globalLights.blueLight.obj then
+  if not dragData or not dragData.strip.treeLights or not dragData.strip.treeLights[1] then
     return
   end
 
-  -- Update global blue light
-  dragData.strip.treeLights[1].globalLights.blueLight.obj:setHidden(false)
-  dragData.strip.treeLights[1].globalLights.blueLight.isOn = true
+  local hasTree = hasTreeLights()
+  local blueLight = dragData.strip.treeLights[1].globalLights.blueLight
 
+  -- Update global blue light object if it exists
+  if hasTree and blueLight.obj and simObjectExists(blueLight.obj) then
+    blueLight.obj:setHidden(false)
+  end
+  blueLight.isOn = true
+
+  -- Always send to UI, even if tree objects don't exist
   updateTreeLightsUI(nil, {
     globalLights = {
       blueLight = true
@@ -459,15 +636,20 @@ local function blueLightOn()
 end
 
 local function blueLightOff()
-  -- Check if blue light exists in any lane
-  if not dragData.strip.treeLights[1].globalLights.blueLight.obj then
+  if not dragData or not dragData.strip.treeLights or not dragData.strip.treeLights[1] then
     return
   end
 
-  -- Update global blue light
-  dragData.strip.treeLights[1].globalLights.blueLight.obj:setHidden(true)
-  dragData.strip.treeLights[1].globalLights.blueLight.isOn = false
+  local hasTree = hasTreeLights()
+  local blueLight = dragData.strip.treeLights[1].globalLights.blueLight
 
+  -- Update global blue light object if it exists
+  if hasTree and blueLight.obj and simObjectExists(blueLight.obj) then
+    blueLight.obj:setHidden(true)
+  end
+  blueLight.isOn = false
+
+  -- Always send to UI, even if tree objects don't exist
   updateTreeLightsUI(nil, {
     globalLights = {
       blueLight = false
@@ -477,9 +659,17 @@ end
 
 local function preStageLightOn(vehId)
   if not vehId or not dragData then return end
-  if not dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.isOn then
-    dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.obj:setHidden(false)
-    dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.isOn = true
+  local laneTree = dragData.strip.treeLights[dragData.racers[vehId].lane]
+  if not laneTree or not laneTree.stageLights then return end
+
+  if not laneTree.stageLights.prestageLight.isOn then
+    local hasTree = hasTreeLights()
+    if hasTree and laneTree.stageLights.prestageLight.obj and simObjectExists(laneTree.stageLights.prestageLight.obj) then
+      laneTree.stageLights.prestageLight.obj:setHidden(false)
+    end
+    laneTree.stageLights.prestageLight.isOn = true
+
+    -- Always send to UI, even if tree objects don't exist
     updateTreeLightsUI(vehId, {
       stageLights = {
         prestageLight = true
@@ -487,7 +677,6 @@ local function preStageLightOn(vehId)
     })
     if not dragData.strip.treeLights[dragData.racers[vehId].lane].countDownLights.greenLight.isOn and not dragData.strip.treeLights[dragData.racers[vehId].lane].countDownLights.redLight.isOn then
       if dragData.racers[vehId].isPlayable then
-        -- Clear old drag messages when entering prestage (new race sequence)
         if ui_gameplayAppContainers then
           ui_gameplayAppContainers.clearMessagesFromSource('drag')
         end
@@ -504,9 +693,17 @@ M.preStageLightOn = preStageLightOn
 
 local function preStageLightOff(vehId)
   if not vehId or not dragData then return end
-  if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.isOn then
-    dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.obj:setHidden(true)
-    dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.prestageLight.isOn = false
+  local laneTree = dragData.strip.treeLights[dragData.racers[vehId].lane]
+  if not laneTree or not laneTree.stageLights then return end
+
+  if laneTree.stageLights.prestageLight.isOn then
+    local hasTree = hasTreeLights()
+    if hasTree and laneTree.stageLights.prestageLight.obj and simObjectExists(laneTree.stageLights.prestageLight.obj) then
+      laneTree.stageLights.prestageLight.obj:setHidden(true)
+    end
+    laneTree.stageLights.prestageLight.isOn = false
+
+    -- Always send to UI, even if tree objects don't exist
     if dragData.racers[vehId].isPlayable then
       updateTreeLightsUI(vehId, {
         stageLights = {
@@ -522,7 +719,7 @@ M.preStageLightOff = preStageLightOff
 local function stageLightOn(vehId)
   if not vehId or not dragData then return end
   if not dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.isOn then
-    if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj then
+    if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj and simObjectExists(dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj) then
       dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj:setHidden(false)
     end
     stagedAmount = stagedAmount + 1
@@ -551,7 +748,7 @@ M.stageLightOn = stageLightOn
 local function stageLightOff(vehId)
   if not vehId or not dragData then return end
   if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.isOn then
-    if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj then
+    if dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj and simObjectExists(dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj) then
       dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.obj:setHidden(true)
     end
     dragData.strip.treeLights[dragData.racers[vehId].lane].stageLights.stageLight.isOn = false
@@ -587,11 +784,11 @@ local function setDisqualifiedLights(vehId)
   local treeLights = dragData.strip.treeLights[racer.lane]
   local countDownLights = treeLights.countDownLights
 
-  countDownLights.amberLight1.obj:setHidden(true)
-  countDownLights.amberLight2.obj:setHidden(true)
-  countDownLights.amberLight3.obj:setHidden(true)
-  countDownLights.greenLight.obj:setHidden(true)
-  countDownLights.redLight.obj:setHidden(false)
+  if countDownLights.amberLight1.obj and simObjectExists(countDownLights.amberLight1.obj) then countDownLights.amberLight1.obj:setHidden(true) end
+  if countDownLights.amberLight2.obj and simObjectExists(countDownLights.amberLight2.obj) then countDownLights.amberLight2.obj:setHidden(true) end
+  if countDownLights.amberLight3.obj and simObjectExists(countDownLights.amberLight3.obj) then countDownLights.amberLight3.obj:setHidden(true) end
+  if countDownLights.greenLight.obj and simObjectExists(countDownLights.greenLight.obj) then countDownLights.greenLight.obj:setHidden(true) end
+  if countDownLights.redLight.obj and simObjectExists(countDownLights.redLight.obj) then countDownLights.redLight.obj:setHidden(false) end
 
   countDownLights.amberLight1.isOn = false
   countDownLights.amberLight2.isOn = false
@@ -633,8 +830,138 @@ local function dragRaceVehicleStopped()
   clearAll()
 end
 
+local function flashAllLightsAndDisplay()
+  if not dragData then return end
+
+  -- Flash sequence: OFF → 1/6s → ON → 1/6s → OFF → 1/6s → ON → 1/6s → OFF (stay off)
+  local flashDuration = 1/6 -- 1/6 second intervals
+  local totalFlashTime = 4/6 -- 4 intervals total
+
+  extensions.hook('onGameplayFlashMessage', {
+    source = 'drag',
+    data = {{"SYSTEM RESET", totalFlashTime, 0, false}}
+  })
+
+  local flashTimer = 0
+  local flashState = 0 -- 0=wait for first on, 1=on, 2=off, 3=on, 4=off, 5=done
+
+  local function updateFlash(dtSim)
+    flashTimer = flashTimer + dtSim
+
+    if flashState == 0 and flashTimer >= flashDuration then
+      -- First flash on
+      for _, laneTree in ipairs(dragData.strip.treeLights) do
+        for _, group in pairs(laneTree) do
+          if type(group) == "table" then
+            for _, light in pairs(group) do
+              if type(light) == "table" and light.obj and simObjectExists(light.obj) then
+                light.obj:setHidden(false)
+              end
+            end
+          end
+        end
+      end
+      for _, digitTypeData in pairs(dragData.strip.displayDigits) do
+        for _, laneTypeData in ipairs(digitTypeData) do
+          for _, digit in ipairs(laneTypeData) do
+            if digit and simObjectExists(digit) then
+              digit:preApply()
+              digit:setField('shapeName', 0, "art/shapes/quarter_mile_display/display_0.dae")
+              digit:setHidden(false)
+              digit:postApply()
+            end
+          end
+        end
+      end
+      flashState = 1
+      flashTimer = 0
+    elseif flashState == 1 and flashTimer >= flashDuration then
+      -- First flash off
+      for _, laneTree in ipairs(dragData.strip.treeLights) do
+        for _, group in pairs(laneTree) do
+          if type(group) == "table" then
+            for _, light in pairs(group) do
+              if type(light) == "table" and light.obj and simObjectExists(light.obj) then
+                light.obj:setHidden(true)
+              end
+            end
+          end
+        end
+      end
+      for _, digitTypeData in pairs(dragData.strip.displayDigits) do
+        for _, laneTypeData in ipairs(digitTypeData) do
+          for _, digit in ipairs(laneTypeData) do
+            if digit and simObjectExists(digit) then
+              digit:setHidden(true)
+            end
+          end
+        end
+      end
+      flashState = 2
+      flashTimer = 0
+    elseif flashState == 2 and flashTimer >= flashDuration then
+      -- Second flash on
+      for _, laneTree in ipairs(dragData.strip.treeLights) do
+        for _, group in pairs(laneTree) do
+          if type(group) == "table" then
+            for _, light in pairs(group) do
+              if type(light) == "table" and light.obj and simObjectExists(light.obj) then
+                light.obj:setHidden(false)
+              end
+            end
+          end
+        end
+      end
+      for _, digitTypeData in pairs(dragData.strip.displayDigits) do
+        for _, laneTypeData in ipairs(digitTypeData) do
+          for _, digit in ipairs(laneTypeData) do
+            if digit and simObjectExists(digit) then
+              digit:setHidden(false)
+            end
+          end
+        end
+      end
+      flashState = 3
+      flashTimer = 0
+    elseif flashState == 3 and flashTimer >= flashDuration then
+      -- Second flash off (final state)
+      for _, laneTree in ipairs(dragData.strip.treeLights) do
+        for _, group in pairs(laneTree) do
+          if type(group) == "table" then
+            for _, light in pairs(group) do
+              if type(light) == "table" and light.obj and simObjectExists(light.obj) then
+                light.obj:setHidden(true)
+              end
+            end
+          end
+        end
+      end
+      for _, digitTypeData in pairs(dragData.strip.displayDigits) do
+        for _, laneTypeData in ipairs(digitTypeData) do
+          for _, digit in ipairs(laneTypeData) do
+            if digit and simObjectExists(digit) then
+              digit:setHidden(true)
+            end
+          end
+        end
+      end
+      flashState = 4
+      flashTimer = 0
+    elseif flashState == 4 and flashTimer >= flashDuration then
+      flashState = 5
+      clearAll()
+      return false -- Stop the update loop
+    end
+
+    return true -- Continue the update loop
+  end
+
+  -- Store the update function in dragData so it can be called from onUpdate
+  dragData.flashUpdate = updateFlash
+end
+
 local function resetDragRaceValues()
-  clearAll()
+  flashAllLightsAndDisplay()
 end
 
 M.clearAll = clearAll
