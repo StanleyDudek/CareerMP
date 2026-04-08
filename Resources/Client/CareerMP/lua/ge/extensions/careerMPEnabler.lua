@@ -556,13 +556,25 @@ local function rxUpdateDisplay(data) --called when a drag display has changed on
 		dragData.strip.displayDigits = initDisplay() or {}
 		guihooks.trigger('updateTreeLightStaging', true)
 	end
-	local timeDisplayValue = decodedData.timeDisplayValue
-	local speedDisplayValue = decodedData.speedDisplayValue
-	local timeDigits
-	local speedDigits
+	local velVal = decodedData.velVal
+	if settings.getValue('uiUnitLength') == "metric" then
+		velVal = velVal * 3.6
+	elseif settings.getValue('uiUnitLength') == "imperial" then
+		velVal = velVal * 2.23694
+	end
 	local lane = decodedData.lane
+	local timeDisplayValue = decodedData.timeDisplayValue
+	local speedDisplayValue = {}
+	local timeDigits = {}
+	local speedDigits = {}
 	timeDigits = dragData.strip.displayDigits.timeDigits[lane]
 	speedDigits = dragData.strip.displayDigits.speedDigits[lane]
+	if velVal < 100 then
+		table.insert(speedDisplayValue, "empty")
+	end
+	for num in string.gmatch(string.format("%.2f", velVal), "%d") do
+		table.insert(speedDisplayValue, num)
+	end
 	if #timeDisplayValue > 0 and #timeDisplayValue < 6 then
 		for i,v in ipairs(timeDisplayValue) do
 			if timeDigits[i] and simObjectExists(timeDigits[i]) then
