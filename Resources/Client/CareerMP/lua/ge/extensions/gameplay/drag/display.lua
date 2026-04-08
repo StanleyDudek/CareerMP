@@ -421,6 +421,10 @@ local function handle400TreeLogic(timers, countDownLights, racer, vehId)
     racer.treeStarted = false
     timers.laneTimerFlag = false
   end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdateLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
+  end
 end
 
 local function handle500TreeLogic(timers, countDownLights, racer, vehId)
@@ -491,6 +495,10 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
         })
       end
     end
+  end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdateLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
   end
 end
 
@@ -633,6 +641,9 @@ local function blueLightOn()
       blueLight = true
     }
   })
+  if MPVehicleGE.isOwn(be:getPlayerVehicleID(0)) then
+    TriggerServerEvent("txUpdateBlueLight", jsonEncode( { blueLight = blueLight, dragData = dragData, isOn = true}))
+  end
 end
 
 local function blueLightOff()
@@ -655,6 +666,9 @@ local function blueLightOff()
       blueLight = false
     }
   })
+  if MPVehicleGE.isOwn(be:getPlayerVehicleID(0)) then
+    TriggerServerEvent("txUpdateBlueLight", jsonEncode( { blueLight = blueLight, dragData = dragData, isOn = false}))
+  end
 end
 
 local function preStageLightOn(vehId)
@@ -684,8 +698,10 @@ local function preStageLightOn(vehId)
       end
     end
   end
-
-
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdatePreStageLight", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, isOn = true}))
+  end
 end
 
 M.preStageLightOn = preStageLightOn
@@ -711,6 +727,10 @@ local function preStageLightOff(vehId)
         }
       })
     end
+  end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdatePreStageLight", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, isOn = false}))
   end
 end
 M.preStageLightOff = preStageLightOff
@@ -741,6 +761,10 @@ local function stageLightOn(vehId)
       end
     end
   end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdateStageLight", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, isOn = true}))
+  end
 end
 
 M.stageLightOn = stageLightOn
@@ -763,6 +787,10 @@ local function stageLightOff(vehId)
         }
       })
     end
+  end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdateStageLight", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, isOn = false}))
   end
 end
 M.stageLightOff = stageLightOff
@@ -807,6 +835,10 @@ local function setDisqualifiedLights(vehId)
       }
     })
     flashMessage("False start", 5)
+  end
+  if MPVehicleGE.isOwn(vehId) then
+    local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
+    TriggerServerEvent("txUpdateDisqualifiedLight", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
   end
 end
 
