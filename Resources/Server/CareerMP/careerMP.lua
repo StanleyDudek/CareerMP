@@ -40,6 +40,11 @@ function onInit()
 
 	MP.RegisterEvent("txUpdateDisplay", "txUpdateDisplay")
 	MP.RegisterEvent("txUpdateWinnerLight", "txUpdateWinnerLight")
+	MP.RegisterEvent("txUpdateBlueLight", "txUpdateBlueLight")
+	MP.RegisterEvent("txUpdatePreStageLight", "txUpdatePreStageLight")
+	MP.RegisterEvent("txUpdateStageLight", "txUpdateStageLight")
+	MP.RegisterEvent("txUpdateDisqualifiedLight", "txUpdateDisqualifiedLight")
+	MP.RegisterEvent("txUpdateLights", "txUpdateLights")
 	MP.RegisterEvent("txClearDisplay", "txClearDisplay")
 	MP.RegisterEvent("txClearAll", "txClearAll")
 
@@ -166,6 +171,46 @@ function txUpdateWinnerLight(player_id, data)
 	for id in pairs(MP.GetPlayers()) do
 		if player_id ~= id then
 			MP.TriggerClientEvent(id, "rxUpdateWinnerLight", data)
+		end
+	end
+end
+
+function txUpdateBlueLight(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateBlueLight", data)
+		end
+	end
+end
+
+function txUpdatePreStageLight(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdatePreStageLight", data)
+		end
+	end
+end
+
+function txUpdateStageLight(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateStageLight", data)
+		end
+	end
+end
+
+function txUpdateDisqualifiedLight(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateDisqualifiedLight", data)
+		end
+	end
+end
+
+function txUpdateLights(player_id, data)
+	for id in pairs(MP.GetPlayers()) do
+		if player_id ~= id then
+			MP.TriggerClientEvent(id, "rxUpdateLights", data)
 		end
 	end
 end

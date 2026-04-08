@@ -55,11 +55,6 @@ local function openMenu(computerFacility, resetActiveVehicleIndex, activityEleme
   end
 
   guihooks.trigger('ChangeState', {state = 'computer'})
-  if computerId == "servicestationOfficeComputer" or computerId == "commercialOfficeComputer" then
-    extensions.hook("onComputerMenuOpened")
-  elseif computerId == "servicestationGarageComputer" or computerId == "commercialGarageComputer" then
-    extensions.hook("onComputerMenuOpenedMP")
-  end
 end
 
 local function computerButtonCallback(buttonId, inventoryId)
