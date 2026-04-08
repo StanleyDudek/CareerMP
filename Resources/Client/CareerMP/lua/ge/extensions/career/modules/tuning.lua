@@ -250,9 +250,9 @@ local function startActual(_originComputerId)
   changedVars = {}
   if originComputerId then
     guihooks.trigger('ChangeState', {state = 'tuning', params = {}})
-    local veh = getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(inventoryId))
     extensions.hook("onCareerTuningStarted", career_modules_inventory.getVehicleIdFromInventoryId(inventoryId))
     createShoppingCart()
+    local veh = getObjectByID(career_modules_inventory.getVehicleIdFromInventoryId(inventoryId))
     core_vehicleBridge.executeAction(veh, 'setFreeze', true)
     setupTether()
   end
