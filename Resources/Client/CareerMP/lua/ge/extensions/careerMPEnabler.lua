@@ -606,18 +606,26 @@ local function rxUpdateWinnerLight(data) --similar to the above, for when the wi
 	driverLightBlinkState = decodedData.driverLightBlinkState
 	local lane = driverLightBlinkState.lane
 	local prefabId = dragData.prefabs.christmasTree.prefabId
-	dragData.strip.treeLights[lane].stageLights.winnerLight.obj = findLightObject("WinLight_Timeboard_" .. lane, prefabId)
-	dragData.strip.treeLights[lane].stageLights.driverLight.obj = findLightObject("WinLight_Driver_" .. lane, prefabId)
 	if lane then
-		if dragData.strip.treeLights[lane].stageLights.winnerLight and dragData.strip.treeLights[lane].stageLights.winnerLight.obj then
-			dragData.strip.treeLights[lane].stageLights.winnerLight.isOn = true
-			dragData.strip.treeLights[lane].stageLights.winnerLight.obj:setHidden(false)
+		if dragData.strip.treeLights[lane].stageLights then
+			if dragData.strip.treeLights[lane].stageLights.winnerLight and dragData.strip.treeLights[lane].stageLights.winnerLight.obj then
+				dragData.strip.treeLights[lane].stageLights.winnerLight.obj = findLightObject("WinLight_Timeboard_" .. lane, prefabId)
+			end
+			if dragData.strip.treeLights[lane].stageLights.driverLight and dragData.strip.treeLights[lane].stageLights.driverLight.obj then
+				dragData.strip.treeLights[lane].stageLights.driverLight.obj = findLightObject("WinLight_Driver_" .. lane, prefabId)
+			end
 		end
-		if dragData.strip.treeLights[lane].stageLights.driverLight and dragData.strip.treeLights[lane].stageLights.driverLight.obj and not driverLightBlinkState.isBlinking then
-			dragData.strip.treeLights[lane].stageLights.driverLight.isOn = true
-			driverLightBlinkState.lane = lane
-			driverLightBlinkState.isBlinking = true
-			driverLightBlinkState.timer = 0
+		if dragData.strip.treeLights[lane].stageLights then
+			if dragData.strip.treeLights[lane].stageLights.winnerLight and dragData.strip.treeLights[lane].stageLights.winnerLight.obj then
+				dragData.strip.treeLights[lane].stageLights.winnerLight.isOn = true
+				dragData.strip.treeLights[lane].stageLights.winnerLight.obj:setHidden(false)
+			end
+			if dragData.strip.treeLights[lane].stageLights.driverLight and dragData.strip.treeLights[lane].stageLights.driverLight.obj and not driverLightBlinkState.isBlinking then
+				dragData.strip.treeLights[lane].stageLights.driverLight.isOn = true
+				driverLightBlinkState.lane = lane
+				driverLightBlinkState.isBlinking = true
+				driverLightBlinkState.timer = 0
+			end
 		end
 	end
 end
@@ -725,8 +733,12 @@ local function rxClearAll() --received when a remote client's drag data have bee
 	for i = 1, 2 do
 		local winnerLightObj = findLightObject("WinLight_Timeboard_" .. i, prefabId)
 		local driverLightObj = findLightObject("WinLight_Driver_" .. i, prefabId)
-		winnerLightObj:setHidden(true)
-		driverLightObj:setHidden(true)
+		if winnerLightObj then
+			winnerLightObj:setHidden(true)
+		end
+		if driverLightObj then
+			driverLightObj:setHidden(true)
+		end
 	end
 	clearLights()
 	clearDisplay()
