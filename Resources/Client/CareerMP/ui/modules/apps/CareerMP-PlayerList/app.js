@@ -322,7 +322,7 @@ function clearPlayerList() {
 }
 
 function payPlayer(targetPlayerName, amount) {
-	bngApi.engineLua('careerMPEnabler.payPlayer("' + targetPlayerName + '", ' + amount + ')')
+	bngApi.engineLua('careerMPPlayerPayments.payPlayer("' + targetPlayerName + '", ' + amount + ')')
 }
 
 function setOfflineInPlayerList() {

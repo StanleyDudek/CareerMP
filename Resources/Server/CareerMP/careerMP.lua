@@ -44,7 +44,7 @@ function onInit()
 	MP.RegisterEvent("txUpdatePreStageLight", "txUpdatePreStageLight")
 	MP.RegisterEvent("txUpdateStageLight", "txUpdateStageLight")
 	MP.RegisterEvent("txUpdateDisqualifiedLight", "txUpdateDisqualifiedLight")
-	MP.RegisterEvent("txUpdateLights", "txUpdateLights")
+	MP.RegisterEvent("txUpdateTreeLights", "txUpdateTreeLights")
 	MP.RegisterEvent("txClearDisplay", "txClearDisplay")
 	MP.RegisterEvent("txClearAll", "txClearAll")
 
@@ -207,10 +207,10 @@ function txUpdateDisqualifiedLight(player_id, data)
 	end
 end
 
-function txUpdateLights(player_id, data)
+function txUpdateTreeLights(player_id, data)
 	for id in pairs(MP.GetPlayers()) do
 		if player_id ~= id then
-			MP.TriggerClientEvent(id, "rxUpdateLights", data)
+			MP.TriggerClientEvent(id, "rxUpdateTreeLights", data)
 		end
 	end
 end

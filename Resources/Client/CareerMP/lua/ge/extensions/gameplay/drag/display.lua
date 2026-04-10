@@ -429,7 +429,7 @@ local function handle400TreeLogic(timers, countDownLights, racer, vehId)
   end
   if MPVehicleGE.isOwn(vehId) then
     local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
-    TriggerServerEvent("txUpdateLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
+    TriggerServerEvent("txUpdateTreeLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
   end
 end
 
@@ -504,7 +504,7 @@ local function handle500TreeLogic(timers, countDownLights, racer, vehId)
   end
   if MPVehicleGE.isOwn(vehId) then
     local serverVehicleID = MPVehicleGE.getServerVehicleID(vehId)
-    TriggerServerEvent("txUpdateLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
+    TriggerServerEvent("txUpdateTreeLights", jsonEncode( { serverVehicleID = serverVehicleID, dragData = dragData, lane = dragData.racers[vehId].lane, countDownLights = countDownLights}))
   end
 end
 
