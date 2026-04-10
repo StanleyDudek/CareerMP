@@ -67,7 +67,8 @@ local careerMPTrafficSettings = {
 local userGameplaySettings = {}
 local careerMPGameplaySettings = {
 	simplifyRemoteVehicles = false,
-	spawnVehicleIgnitionLevel = 0
+	spawnVehicleIgnitionLevel = 0,
+	skipOtherPlayersVehicles = false
 }
 
 --UI Layouts
