@@ -1121,6 +1121,7 @@ end
 local function getUserGameplaySettings()
 	userGameplaySettings.simplifyRemoteVehicles = settings.getValue("simplifyRemoteVehicles")
 	userGameplaySettings.spawnVehicleIgnitionLevel = settings.getValue("spawnVehicleIgnitionLevel")
+	userGameplaySettings.skipOtherPlayersVehicles = settings.getValue("skipOtherPlayersVehicles")
 end
 
 local function setGameplaySettings(gameplaySettings)
