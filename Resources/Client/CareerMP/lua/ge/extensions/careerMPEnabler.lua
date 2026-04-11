@@ -182,9 +182,7 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 			local veh = be:getObjectByID(gameVehicleID) --get the ready vehicle as an object using its gameVehicleID
 			if veh.JBeam == "unicycle" then
 				if clientConfig then
-					if not clientConfig.unicycleCollisionEnabled then
-						veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')')
-					end
+					veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
 				end
 			end
 			if hiddens[veh.JBeam] then --if it is an object that should have the nametag hidden
@@ -388,6 +386,10 @@ local function rxCareerSync(data) --the client has told the server it is ready, 
 	end
 end
 
+local function rxClientConfigUpdate(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
+	clientConfig = jsonDecode(data)
+end
+
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
 	if state == 2 then --final state
 		if not syncRequested then --if the client has not requested a sync
@@ -411,7 +413,9 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 				local veh = be:getObjectByID(vehicles[serverVehicleID].gameVehicleID)
 				if veh then
 					if veh.JBeam == "unicycle" then
-						veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')')
+						if clientConfig then
+							veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
+						end
 					end
 				end
 			end
@@ -427,6 +431,7 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	getUserGameplaySettings()
 	setGameplaySettings(careerMPGameplaySettings)
 	AddEventHandler("rxCareerSync", rxCareerSync)
+	AddEventHandler("rxClientConfigUpdate", rxClientConfigUpdate)
 	AddEventHandler("rxCareerVehSync", rxCareerVehSync)
 	AddEventHandler("rxTrafficSignalTimer", rxTrafficSignalTimer)
 	career_career = extensions.career_careerMP --replace stock career lua with my modified careerMP lua
