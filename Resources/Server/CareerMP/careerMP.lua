@@ -9,8 +9,8 @@ local defaultConfig = {
 		longWindowSeconds = 300,
 		shortWindowSeconds = 30,
 		allowTransactions = true,
+		sessionSendingMax = 100000,
 		sessionReceiveMax = 200000,
-		sessionTransactionMax = 100000,
 	},
 	client = {
 		unicycleGhost = false,
