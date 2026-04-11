@@ -1,12 +1,15 @@
 
 local M = {}
 
-local function onVehicleReady(uniCol)
-	if v.config.model == "unicycle" and not uniCol then
-		obj:setGhostEnabled(true)
-	end
+local uniCol = true
+
+local function onVehicleReady()
 	obj:queueGameEngineLua("careerMPEnabler.onVehicleReady(" .. obj:getID() .. ") ")
 	obj:queueGameEngineLua("careerMPPerPartPaint.onVehicleReady(" .. obj:getID() .. ") ")
+end
+
+local function setUnicycleGhost(enabled)
+	uniCol = enabled
 end
 
 local function onConditionCheck()
@@ -15,7 +18,17 @@ local function onConditionCheck()
 	end
 end
 
+local function onUpdateGFX()
+	if not uniCol then
+		obj:setGhostEnabled(true)
+	end
+end
+
+M.onUpdateGFX = onUpdateGFX
+
 M.onConditionCheck = onConditionCheck
+
+M.setUnicycleGhost = setUnicycleGhost
 
 M.onVehicleReady = onVehicleReady
 
