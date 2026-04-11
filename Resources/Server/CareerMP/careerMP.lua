@@ -433,6 +433,7 @@ function SetConfig(arguments)
     Config[section][key] = CheckValue(value)
     print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
     WriteJson(configPath .. "config.json", Config)
+	MP.TriggerClientEventJson(-1, "rxCareerSync", Config.client)
 end
 
 function ParseQuotedString(input, startIndex)
