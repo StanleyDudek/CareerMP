@@ -1,20 +1,37 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 
+local configPath = "Resources/Server/CareerMP/config/"
+
+local defaultConfig = {
+	server = {
+		longWindowMax = 10000,
+		shortWindowMax = 1000,
+		longWindowSeconds = 300,
+		shortWindowSeconds = 30,
+		allowTransactions = true,
+		sessionReceiveMax = 200000,
+		sessionTransactionMax = 100000,
+	},
+	client = {
+		serverSaveSuffix = "",
+		roadTrafficAmount = 2,
+		parkedTrafficAmount = 2,
+		roadTrafficEnabled = true,
+		parkedTrafficEnabled = true,
+		unicycleCollisionEnabled = false,
+	}
+}
+
+local synced = false
 local vehicleStates = {}
 local loadedPrefabs = {}
 
 local signalTimer = MP.CreateTimer()
 
-local sessionTransactionMax = 100000
-local sessionReceiveMax = 200000
-local shortWindowMax = 1000
-local shortWindowSeconds = 30
-local longWindowMax = 10000
-local longWindowSeconds = 300
-local sendLedger = {}
-local receiveLedger = {}
-
-local allowTransactions = true
+local ledger = {
+	send = {},
+	receive = {}
+}
 
 local trapNames = {
     [1] = "Riverway Plaza",
@@ -58,6 +75,20 @@ function onInit()
 	MP.RegisterEvent("onVehicleEdited","onVehicleEditedHandler")
 	MP.RegisterEvent("onVehicleDeleted","onVehicleDeletedHandler")
 	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
+
+	MP.RegisterEvent("onConsoleInput","onConsoleInputHandler")
+
+	MP.RegisterEvent("GetConfig","GetConfig")
+	MP.RegisterEvent("SetConfig","SetConfig")
+
+	Config = ReadJson(configPath .. "config.json")
+
+	if not Config then
+		Config = defaultConfig
+		WriteJson(configPath .. "config.json", Config)
+	end
+
+	print("[CareerMP] ---------- CareerMP Config Loaded!")
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
 end
@@ -113,28 +144,28 @@ local function getWindowTotal(transactions, now, windowSeconds)
 end
 
 local function attemptTransaction(sender_id, receiver_id, amount, now)
-    local sender = getOrCreate(sendLedger, sender_id)
-    local receiver = getOrCreate(receiveLedger, receiver_id)
-    local short_total = getWindowTotal(sender.short_transactions, now, shortWindowSeconds)
-    local long_total = getWindowTotal(sender.long_transactions, now, longWindowSeconds)
-    if sender.session_total + amount > sessionTransactionMax then
+    local sender = getOrCreate(ledger.send, sender_id)
+    local receiver = getOrCreate(ledger.receive, receiver_id)
+    local short_total = getWindowTotal(sender.short_transactions, now, Config.server.shortWindowSeconds)
+    local long_total = getWindowTotal(sender.long_transactions, now, Config.server.longWindowSeconds)
+    if sender.session_total + amount > Config.server.sessionTransactionMax then
         return false
     end
-    if short_total > 0 and short_total + amount > shortWindowMax then
+    if short_total > 0 and short_total + amount > Config.server.shortWindowMax then
         return false
     end
-    if long_total > 0 and long_total + amount > longWindowMax then
+    if long_total > 0 and long_total + amount > Config.server.longWindowMax then
         return false
     end
-    if receiver.session_total + amount > sessionReceiveMax then
+    if receiver.session_total + amount > Config.server.sessionReceiveMax then
         return false
     end
     sender.session_total = sender.session_total + amount
     receiver.session_total = receiver.session_total + amount
-	if amount <= shortWindowMax then
+	if amount <= Config.server.shortWindowMax then
 		table.insert(sender.short_transactions, { amount = amount, timestamp = now })
 	end
-	if amount <= longWindowMax then
+	if amount <= Config.server.longWindowMax then
 		table.insert(sender.long_transactions, { amount = amount, timestamp = now })
 	end
     return true
@@ -143,7 +174,7 @@ end
 function payPlayer(player_id, data)
 	local paymentData = Util.JsonDecode(data)
 	paymentData.sender = MP.GetPlayerName(player_id)
-	if allowTransactions then
+	if Config.server.allowTransactions then
 		if MP.IsPlayerConnected(paymentData.target_player_id) then
 			if attemptTransaction(player_id, paymentData.target_player_id, paymentData.money, signalTimer:GetCurrent()) then
 				MP.TriggerClientEventJson(paymentData.target_player_id, "rxPayment", paymentData)
@@ -257,8 +288,6 @@ function redLight(player_id, data)
 	MP.SendNotification(-1, "Plate: " .. redLightData.licensePlate, "code", "code")
 end
 
-local synced = false
-
 function trafficLightTimer()
 	if synced then
 		MP.TriggerClientEvent(-1, "rxTrafficSignalTimer", tostring(signalTimer:GetCurrent()))
@@ -285,7 +314,7 @@ function careerPrefabSync(player_id, data)
 end
 
 function careerSyncRequested(player_id)
-	MP.TriggerClientEvent(player_id, "rxCareerSync", "")
+	MP.TriggerClientEventJson(player_id, "rxCareerSync", Config.client)
 end
 
 function prefabSyncRequested(player_id)
@@ -338,6 +367,180 @@ end
 
 function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
-	sendLedger[player_id] = nil
-	receiveLedger[player_id] = nil
+	ledger.send[player_id] = nil
+	ledger.receive[player_id] = nil
+end
+
+function onConsoleInputHandler(message)
+	local space = message:find(" ")
+	if not space then
+		return ""
+	end
+	local commandPrefix = message:sub(1, space)
+    if commandPrefix == "CareerMP " or "CMP " then
+		local prefixLen = commandPrefix:len()
+		message = message:sub(prefixLen + 1)
+		local command = message
+		local arguments = {}
+		local separator = message:find(' ')
+		if separator then
+			command, arguments = ParseCommand(message, separator)
+		end
+		MP.TriggerLocalEvent(command, arguments)
+	end
+    return ""
+end
+
+function CheckValue(value)
+    if tonumber(value) then
+        return tonumber(value)
+    elseif value == "true" then
+        return true
+    elseif value == "false" then
+        return false
+    end
+    return value
+end
+
+function GetConfig(arguments)
+    Config = ReadJson(configPath .. "config.json")
+    if #arguments == 0 then
+        print(Config)
+    elseif #arguments == 1 then
+        print(Config[arguments[1]])
+    else
+        print(Config[arguments[1]][arguments[2]])
+    end
+end
+
+function SetConfig(arguments)
+    if #arguments < 3 then
+        print("Usage: Command SetConfig <section> <key> <value>")
+        return
+    end
+    Config = ReadJson(configPath .. "config.json")
+    local section = arguments[1]
+    local key = arguments[2]
+    local value = arguments[3]
+    if not Config[section] then
+        print("[CareerMP] ---------- Unknown section: " .. section)
+        return
+    end
+    if Config[section][key] == nil then
+        print("[CareerMP] ---------- Unknown key: " .. section .. "." .. key)
+        return
+    end
+    Config[section][key] = CheckValue(value)
+    print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
+    WriteJson(configPath .. "config.json", Config)
+end
+
+function ParseQuotedString(input, startIndex)
+    local closingQuoteIndex = input:find('"', startIndex + 1)
+    if closingQuoteIndex then
+        local value = input:sub(startIndex + 1, closingQuoteIndex - 1)
+        return value, closingQuoteIndex + 2
+    else
+        local value = input:sub(startIndex + 1)
+        return value, nil
+    end
+end
+
+function ParseWord(input, startIndex)
+    local nextSpaceIndex = input:find(' ', startIndex)
+    if nextSpaceIndex then
+        local value = input:sub(startIndex, nextSpaceIndex - 1)
+        return value, nextSpaceIndex + 1
+    else
+        return input:sub(startIndex), nil
+    end
+end
+
+function ParseCommand(message, separator)
+    local arguments = {}
+    local command = nil
+    if separator then
+        command = message:sub(1, separator - 1)
+        local argumentsString = message:sub(separator + 1)
+        local currentIndex = 1
+        while currentIndex <= #argumentsString do
+            local currentChar = argumentsString:sub(currentIndex, currentIndex)
+            if currentChar == '"' then
+                local value, nextIndex = ParseQuotedString(argumentsString, currentIndex)
+                table.insert(arguments, value)
+                if not nextIndex then
+					break
+				end
+                currentIndex = nextIndex
+            elseif currentChar ~= ' ' then
+                local value, nextIndex = ParseWord(argumentsString, currentIndex)
+                table.insert(arguments, value)
+                if not nextIndex then
+					break
+				end
+                currentIndex = nextIndex
+            else
+                currentIndex = currentIndex + 1
+            end
+        end
+    end
+    return command, arguments
+end
+
+function ReadJson(path)
+    if not path then
+        print("[CareerMP] ---------- ReadJson:  path is nil!")
+        return
+    end
+    if not FS.Exists(path) then
+        print("[CareerMP] ---------- ReadJson:  " .. path .. " does not exist!")
+        return
+    end
+    local jsonFile, err = io.open(path, "r")
+    if not jsonFile then
+        print("[CareerMP] ---------- ReadJson:  failed to open " .. path .. ": " .. tostring(err))
+        return
+    end
+    local jsonText = jsonFile:read("*a")
+    jsonFile:close()
+    if not jsonText or jsonText == "" then
+        print("[CareerMP] ---------- ReadJson:  " .. path .. " is empty!")
+        return
+    end
+    local data = Util.JsonDecode(jsonText)
+    if data == nil then
+        print("[CareerMP] ---------- ReadJson:  failed to decode " .. path)
+        return
+    end
+    return data
+end
+
+function WriteJson(path, data)
+    if not path then
+        print("[CareerMP] ---------- WriteJson: path is nil!")
+        return
+    end
+    if data == nil then
+        print("[CareerMP] ---------- WriteJson: data is nil, aborting!")
+        return
+    end
+    local checkDirectory = path:match("(.+)/[^/]+$")
+    if checkDirectory and not FS.Exists(checkDirectory) then
+        FS.CreateDirectory(checkDirectory)
+        print("[CareerMP] ---------- WriteJson: created directory " .. checkDirectory)
+    end
+    local encoded = Util.JsonEncode(data)
+    if not encoded then
+        print("[CareerMP] ---------- WriteJson: failed to encode data!")
+        return
+    end
+    local jsonFile, err = io.open(path, "w")
+    if not jsonFile then
+        print("[CareerMP] ---------- WriteJson: failed to open " .. path .. ": " .. tostring(err))
+        return
+    end
+    print("[CareerMP] ---------- WriteJson: writing " .. path)
+    jsonFile:write(Util.JsonPrettify(encoded))
+    jsonFile:close()
+    return true
 end
