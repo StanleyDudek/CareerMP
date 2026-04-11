@@ -14,10 +14,10 @@ local defaultConfig = {
 	},
 	client = {
 		serverSaveSuffix = "",
-		roadTrafficAmount = 2,
-		parkedTrafficAmount = 2,
-		roadTrafficEnabled = true,
-		parkedTrafficEnabled = true,
+		roadTrafficAmount = 0,
+		parkedTrafficAmount = 0,
+		roadTrafficEnabled = false,
+		parkedTrafficEnabled = false,
 		unicycleCollisionEnabled = false,
 	}
 }
