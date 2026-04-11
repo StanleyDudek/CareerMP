@@ -1,8 +1,8 @@
 
 local M = {}
 
-local function onVehicleReady()
-	if v.config.model == "unicycle" then
+local function onVehicleReady(uniCol)
+	if v.config.model == "unicycle" and not uniCol then
 		obj:setGhostEnabled(true)
 	end
 	obj:queueGameEngineLua("careerMPEnabler.onVehicleReady(" .. obj:getID() .. ") ")
