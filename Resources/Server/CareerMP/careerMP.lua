@@ -14,7 +14,7 @@ local defaultConfig = {
 	},
 	client = {
 		allGhost = false,
-		unicycleGhost = false,
+		unicycleGhost = true,
 		serverSaveName = "",
 		serverSaveSuffix = "",
 		serverSaveNameEndabled = false,
