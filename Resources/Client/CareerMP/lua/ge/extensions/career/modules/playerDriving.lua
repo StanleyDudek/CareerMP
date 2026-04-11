@@ -54,7 +54,7 @@ local function setupTraffic(forceSetup)
       amount = amount - 1
     end
     if not M.debugMode then
-      amount = clamp(amount, 2, 2) -- at least 2 vehicles should get spawned
+      amount = clamp(amount, 2, careerMPEnabler.getClientConfig().roadTrafficAmount or 50) -- at least 2 vehicles should get spawned
     end
 
     -- parked cars amount
@@ -63,7 +63,7 @@ local function setupTraffic(forceSetup)
       parkedAmount = clamp(gameplay_traffic.getIdealSpawnAmount(nil, true), 4, 20)
     end
     if not M.debugMode then
-      parkedAmount = clamp(parkedAmount, 2, 2) -- at least 2 vehicles should get spawned
+      parkedAmount = clamp(parkedAmount, 2, careerMPEnabler.getClientConfig().parkedTrafficAmount or 50) -- at least 2 vehicles should get spawned
     end
 
     -- police amount and vehicle pooling
@@ -74,8 +74,12 @@ local function setupTraffic(forceSetup)
 
     -- this will spawn vehicles near the center of the map (player vehicle not ready yet)
     -- if this would wait until player vehicle active, then the loading screen would fade out early...
-    --gameplay_parking.setupVehicles(restrict and testTrafficAmounts.parkedCars or parkedAmount)
-    --gameplay_traffic.setupTraffic(restrict and testTrafficAmounts.traffic + extraAmount or amount + extraAmount, 0, {policeAmount = policeAmount, simpleVehs = true, autoLoadFromFile = true})
+    if careerMPEnabler.getClientConfig().parkedTrafficEnabled then
+      gameplay_parking.setupVehicles(restrict and testTrafficAmounts.parkedCars or parkedAmount)
+    end
+    if careerMPEnabler.getClientConfig().roadTrafficEnabled then
+      gameplay_traffic.setupTraffic(restrict and testTrafficAmounts.traffic + extraAmount or amount + extraAmount, 0, {policeAmount = policeAmount, simpleVehs = true, autoLoadFromFile = true})
+    end
     setTrafficVars()
 
     M.ensureTraffic = false
