@@ -13,12 +13,12 @@ local defaultConfig = {
 		sessionTransactionMax = 100000,
 	},
 	client = {
+		unicycleGhost = false,
 		serverSaveSuffix = "",
 		roadTrafficAmount = 0,
 		parkedTrafficAmount = 0,
 		roadTrafficEnabled = false,
 		parkedTrafficEnabled = false,
-		unicycleCollisionEnabled = false,
 	}
 }
 
@@ -433,7 +433,7 @@ function SetConfig(arguments)
     Config[section][key] = CheckValue(value)
     print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
     WriteJson(configPath .. "config.json", Config)
-	MP.TriggerClientEventJson(-1, "rxCareerSync", Config.client)
+	MP.TriggerClientEventJson(-1, "rxClientConfigUpdate", Config.client)
 end
 
 function ParseQuotedString(input, startIndex)
