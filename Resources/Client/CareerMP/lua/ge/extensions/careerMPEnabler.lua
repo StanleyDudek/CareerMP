@@ -5,6 +5,8 @@ local M = {}
 --Setup
 local nickname = MPConfig.getNickname()
 
+local blockedInputActions = {}
+
 local clientConfig
 
 local function getClientConfig()
@@ -180,10 +182,11 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 		if not MPVehicleGE.isOwn(gameVehicleID) then --if it is a remote vehicle
 			local vehicles = MPVehicleGE.getVehicles() --get the list of vehicles from BeamMP
 			local veh = be:getObjectByID(gameVehicleID) --get the ready vehicle as an object using its gameVehicleID
-			if veh.JBeam == "unicycle" then
-				if clientConfig then
+			if clientConfig then
+				if veh.JBeam == "unicycle" then
 					veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
 				end
+				veh:queueLuaCommand('careerMPEnabler.setAllGhost(' .. tostring(clientConfig.allGhost) .. ')')
 			end
 			if hiddens[veh.JBeam] then --if it is an object that should have the nametag hidden
 				vehicles[serverVehicleID].hideNametag = true --hide the nametag
@@ -380,7 +383,29 @@ end
 local function rxCareerSync(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
 	clientConfig = jsonDecode(data)
 	nickname = MPConfig.getNickname()
+	blockedInputActions = {}
+    if not clientConfig.consoleEnabled then
+        table.insert(blockedInputActions, "toggleConsoleNG")
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', true)
+	elseif clientConfig.consoleEnabled then
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', false)
+    end
+    if not clientConfig.worldEditorEnabled then
+        table.insert(blockedInputActions, "editorToggle")
+        table.insert(blockedInputActions, "editorSafeModeToggle")
+        table.insert(blockedInputActions, "objectEditorToggle")
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', true)
+	elseif clientConfig.worldEditorEnabled then
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', false)
+    end
 	if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
+		if clientConfig.serverSaveNameEnabled then
+			nickname = clientConfig.serverSaveName
+		end
 		career_career.createOrLoadCareerAndStart(nickname .. clientConfig.serverSaveSuffix, false, false) --trigger career to start
 		careerMPActive = true --mark careerMPActive true
 	end
@@ -388,6 +413,25 @@ end
 
 local function rxClientConfigUpdate(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
 	clientConfig = jsonDecode(data)
+	blockedInputActions = {}
+    if not clientConfig.consoleEnabled then
+        table.insert(blockedInputActions, "toggleConsoleNG")
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', true)
+	elseif clientConfig.consoleEnabled then
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', false)
+    end
+    if not clientConfig.worldEditorEnabled then
+        table.insert(blockedInputActions, "editorToggle")
+        table.insert(blockedInputActions, "editorSafeModeToggle")
+        table.insert(blockedInputActions, "objectEditorToggle")
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', true)
+	elseif clientConfig.worldEditorEnabled then
+		extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+		extensions.core_input_actionFilter.addAction(0, 'careerMP', false)
+    end
 end
 
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
@@ -412,10 +456,11 @@ local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 			for serverVehicleID in pairs(vehicles) do
 				local veh = be:getObjectByID(vehicles[serverVehicleID].gameVehicleID)
 				if veh then
-					if veh.JBeam == "unicycle" then
-						if clientConfig then
+					if not MPVehicleGE.isOwn(vehicles[serverVehicleID].gameVehicleID) then
+						if veh.JBeam == "unicycle" then
 							veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
 						end
+						veh:queueLuaCommand('careerMPEnabler.setAllGhost(' .. tostring(clientConfig.allGhost) .. ')')
 					end
 				end
 			end
