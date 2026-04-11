@@ -5,6 +5,12 @@ local M = {}
 --Setup
 local nickname = MPConfig.getNickname()
 
+local clientConfig
+
+local function getClientConfig()
+	return clientConfig
+end
+
 local careerMPActive = false --one-way switch, set true when we patch the topBar items after everything is loaded
 local syncRequested = false --one-way switch, set true when we have sent the sync request to the server
 
@@ -160,7 +166,7 @@ local function onVehicleSpawned(gameVehicleID) --called by the base game when a 
 		local veh = be:getObjectByID(gameVehicleID) --get the vehicle object
 		if veh then --check nil
 			veh:setField('renderDistance', '', 6969) --set the render distance sufficiently high that you can see players and traffic on the map surface from the bigmap view
-			veh:queueLuaCommand('careerMPEnabler.onVehicleReady()') --trigger a vehicle lua event that will call back when the vehicle is ready, AKA you can get the data you might need from it
+			veh:queueLuaCommand('careerMPEnabler.onVehicleReady(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')') --trigger a vehicle lua event that will call back when the vehicle is ready, AKA you can get the data you might need from it
 		end
 		if not MPVehicleGE.isOwn(gameVehicleID) then --if it is a remote vehicle
 			TriggerServerEvent("careerVehSyncRequested", "") --tell the server we want an up to date list of active vehicle states
@@ -367,17 +373,17 @@ end
 --Initial Syncs and Updates
 
 local function rxCareerSync(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
-
+	clientConfig = jsonDecode(data)
+	nickname = MPConfig.getNickname()
+	if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
+		career_career.createOrLoadCareerAndStart(nickname .. clientConfig.serverSaveSuffix, false, false) --trigger career to start
+		careerMPActive = true --mark careerMPActive true
+	end
 end
 
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
 	if state == 2 then --final state
-		nickname = MPConfig.getNickname()
 		if not syncRequested then --if the client has not requested a sync
-			if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
-				career_career.createOrLoadCareerAndStart(nickname, false, false) --trigger career to start
-				careerMPActive = true --mark careerMPActive true
-			end
 			TriggerServerEvent("prefabSyncRequested", "") --request a prefab sync from the server
 			TriggerServerEvent("careerSyncRequested", "") --request a career sync from the server
 			syncRequested = true --mark syncRequested true
@@ -422,6 +428,8 @@ local function onServerLeave()
 end
 
 --Access
+
+M.getClientConfig = getClientConfig
 
 M.onCareerActive = onCareerActive
 
