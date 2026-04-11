@@ -13,12 +13,17 @@ local defaultConfig = {
 		sessionReceiveMax = 200000,
 	},
 	client = {
+		allGhost = false,
 		unicycleGhost = false,
+		serverSaveName = "",
 		serverSaveSuffix = "",
+		serverSaveNameEndabled = false,
 		roadTrafficAmount = 0,
 		parkedTrafficAmount = 0,
 		roadTrafficEnabled = false,
 		parkedTrafficEnabled = false,
+		worldEditorEnabled = false,
+		consoleEnabled = false,
 	}
 }
 
@@ -44,6 +49,9 @@ local trapNames = {
 }
 
 function onInit()
+
+	print("[CareerMP] ---------- CareerMP Loading...")
+
 	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
 	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
 
@@ -81,16 +89,53 @@ function onInit()
 	MP.RegisterEvent("GetConfig","GetConfig")
 	MP.RegisterEvent("SetConfig","SetConfig")
 
-	Config = ReadJson(configPath .. "config.json")
-
-	if not Config then
-		Config = defaultConfig
-		WriteJson(configPath .. "config.json", Config)
-	end
-
-	print("[CareerMP] ---------- CareerMP Config Loaded!")
+	PrepareConfig()
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
+end
+
+function PrepareConfig()
+	print("[CareerMP] ---------- CareerMP Config Loading...")
+	Config = ReadJson(configPath .. "config.json")
+	if not Config then
+		print("[CareerMP] ---------- CareerMP Config Initializing...")
+		Config = defaultConfig
+		for section, fields in pairs(defaultConfig) do
+			for field, value in pairs(fields) do
+				print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " set to " .. tostring(value))
+			end
+		end
+		WriteJson(configPath .. "config.json", Config)
+	else
+		local updateFound
+		for section, fields in pairs(defaultConfig) do
+			print("[CareerMP] ---------- CareerMP Config Checking " .. section)
+			if Config[section] == nil then
+				updateFound = true
+				print("[CareerMP] ---------- CareerMP Config Adding: " .. section)
+				Config[section] = {}
+				for field, value in pairs(fields) do
+					print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " set to " .. tostring(value))
+					
+					Config[section][field] = value
+				end
+			else
+				for field, value in pairs(fields) do
+					if Config[section][field] == nil then
+						print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " not found")
+						print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " set to " .. tostring(value))
+						updateFound = true
+						Config[section][field] = value
+					end
+				end
+			end
+		end
+		if updateFound then
+			print("[CareerMP] ---------- CareerMP Config Updated!")
+			WriteJson(configPath .. "config.json", Config)
+		end
+	end
+	print("[CareerMP] ---------- CareerMP Config Loaded!")
 end
 
 function perPartPaintingHandler(player_id, data)
@@ -427,11 +472,11 @@ function SetConfig(arguments)
 		return
 	end
 	if Config[section][key] == nil then
-		print("[CareerMP] ---------- Unknown key: " .. section .. "." .. key)
+		print("[CareerMP] ---------- Unknown key: " .. section .. " " .. key)
 		return
 	end
 	Config[section][key] = CheckValue(value)
-	print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
+	print("[CareerMP] ---------- Config:    " .. section .. " " .. tostring(key) .. " set to " .. tostring(Config[section][key]))
 	WriteJson(configPath .. "config.json", Config)
 	MP.TriggerClientEventJson(-1, "rxClientConfigUpdate", Config.client)
 end
