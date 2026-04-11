@@ -2,11 +2,12 @@
 local M = {}
 
 local function onVehicleReady()
-	if v.config.model == "unicycle" then
-		obj:setGhostEnabled(true)
-	end
 	obj:queueGameEngineLua("careerMPEnabler.onVehicleReady(" .. obj:getID() .. ") ")
 	obj:queueGameEngineLua("careerMPPerPartPaint.onVehicleReady(" .. obj:getID() .. ") ")
+end
+
+local function setUnicycleGhost(enabled)
+	obj:setGhostEnabled(enabled)
 end
 
 local function onConditionCheck()
@@ -16,6 +17,8 @@ local function onConditionCheck()
 end
 
 M.onConditionCheck = onConditionCheck
+
+M.setUnicycleGhost = setUnicycleGhost
 
 M.onVehicleReady = onVehicleReady
 

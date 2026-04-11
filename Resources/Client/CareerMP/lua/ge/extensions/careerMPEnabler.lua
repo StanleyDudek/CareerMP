@@ -5,6 +5,12 @@ local M = {}
 --Setup
 local nickname = MPConfig.getNickname()
 
+local clientConfig
+
+local function getClientConfig()
+	return clientConfig
+end
+
 local careerMPActive = false --one-way switch, set true when we patch the topBar items after everything is loaded
 local syncRequested = false --one-way switch, set true when we have sent the sync request to the server
 
@@ -174,6 +180,11 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 		if not MPVehicleGE.isOwn(gameVehicleID) then --if it is a remote vehicle
 			local vehicles = MPVehicleGE.getVehicles() --get the list of vehicles from BeamMP
 			local veh = be:getObjectByID(gameVehicleID) --get the ready vehicle as an object using its gameVehicleID
+			if veh.JBeam == "unicycle" then
+				if clientConfig then
+					veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
+				end
+			end
 			if hiddens[veh.JBeam] then --if it is an object that should have the nametag hidden
 				vehicles[serverVehicleID].hideNametag = true --hide the nametag
 			else
@@ -367,17 +378,21 @@ end
 --Initial Syncs and Updates
 
 local function rxCareerSync(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
+	clientConfig = jsonDecode(data)
+	nickname = MPConfig.getNickname()
+	if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
+		career_career.createOrLoadCareerAndStart(nickname .. clientConfig.serverSaveSuffix, false, false) --trigger career to start
+		careerMPActive = true --mark careerMPActive true
+	end
+end
 
+local function rxClientConfigUpdate(data) --the client has told the server it is ready, and the server has acknowledged by triggering this event
+	clientConfig = jsonDecode(data)
 end
 
 local function onWorldReadyState(state) --called by the base game when the level has finished loading, at the moment that objects are spawning, before the loading screen has faded out
 	if state == 2 then --final state
-		nickname = MPConfig.getNickname()
 		if not syncRequested then --if the client has not requested a sync
-			if not careerMPActive then --if we havn't activated career yet and so we haven't marked careerMPActive true
-				career_career.createOrLoadCareerAndStart(nickname, false, false) --trigger career to start
-				careerMPActive = true --mark careerMPActive true
-			end
 			TriggerServerEvent("prefabSyncRequested", "") --request a prefab sync from the server
 			TriggerServerEvent("careerSyncRequested", "") --request a career sync from the server
 			syncRequested = true --mark syncRequested true
@@ -392,6 +407,19 @@ end
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	if worldReadyState == 2 then --if the level is loaded
 		patchBeamMP() --patch BeamMP's unicycle deletion
+		if clientConfig then
+			local vehicles = MPVehicleGE.getVehicles()
+			for serverVehicleID in pairs(vehicles) do
+				local veh = be:getObjectByID(vehicles[serverVehicleID].gameVehicleID)
+				if veh then
+					if veh.JBeam == "unicycle" then
+						if clientConfig then
+							veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
+						end
+					end
+				end
+			end
+		end
 	end
 end
 
@@ -403,6 +431,7 @@ local function onExtensionLoaded() --called by the base game when the extension 
 	getUserGameplaySettings()
 	setGameplaySettings(careerMPGameplaySettings)
 	AddEventHandler("rxCareerSync", rxCareerSync)
+	AddEventHandler("rxClientConfigUpdate", rxClientConfigUpdate)
 	AddEventHandler("rxCareerVehSync", rxCareerVehSync)
 	AddEventHandler("rxTrafficSignalTimer", rxTrafficSignalTimer)
 	career_career = extensions.career_careerMP --replace stock career lua with my modified careerMP lua
@@ -422,6 +451,8 @@ local function onServerLeave()
 end
 
 --Access
+
+M.getClientConfig = getClientConfig
 
 M.onCareerActive = onCareerActive
 
