@@ -34,13 +34,13 @@ local ledger = {
 }
 
 local trapNames = {
-    [1] = "Riverway Plaza",
-    [2] = "Plaza Northbound",
-    [3] = "Plaza Southbound",
-    [4] = "Beach",
-    [5] = "Lighthouse",
-    [6] = "Island Port Northbound",
-    [7] = "Island Port Southbound"
+	[1] = "Riverway Plaza",
+	[2] = "Plaza Northbound",
+	[3] = "Plaza Southbound",
+	[4] = "Beach",
+	[5] = "Lighthouse",
+	[6] = "Island Port Northbound",
+	[7] = "Island Port Southbound"
 }
 
 function onInit()
@@ -66,8 +66,8 @@ function onInit()
 	MP.RegisterEvent("txClearAll", "txClearAll")
 
 	MP.RegisterEvent("speedTrap", "speedTrap")
-    MP.RegisterEvent("redLight", "redLight")
-    MP.RegisterEvent("trafficLightTimer","trafficLightTimer")
+	MP.RegisterEvent("redLight", "redLight")
+	MP.RegisterEvent("trafficLightTimer","trafficLightTimer")
 	MP.CreateEventTimer("trafficLightTimer", 10000)
 
 	MP.RegisterEvent("onPlayerJoin","onPlayerJoinHandler")
@@ -94,7 +94,7 @@ function onInit()
 end
 
 function perPartPaintingHandler(player_id, data)
-    local paintData = Util.JsonDecode(data)
+	local paintData = Util.JsonDecode(data)
 	if not paintData.originID then
 		for id in pairs(MP.GetPlayers()) do
 			if player_id ~= id then
@@ -107,68 +107,68 @@ function perPartPaintingHandler(player_id, data)
 end
 
 function requestPartPaintsHandler(player_id, data)
-    local requestData = Util.JsonDecode(data)
+	local requestData = Util.JsonDecode(data)
 	local targetID = tonumber(requestData.serverVehicleID:sub(1,1))
 	requestData.originID = player_id
 	MP.TriggerClientEventJson(targetID, "rxRequestPartPaints", requestData)
 end
 
 local function getOrCreate(ledger, player_id)
-    if not ledger[player_id] then
-        ledger[player_id] = {
-            session_total = 0,
-            short_transactions = {},
-            long_transactions = {}
-        }
-    end
-    return ledger[player_id]
+	if not ledger[player_id] then
+		ledger[player_id] = {
+			session_total = 0,
+			short_transactions = {},
+			long_transactions = {}
+		}
+	end
+	return ledger[player_id]
 end
 
 local function getWindowTotal(transactions, now, windowSeconds)
-    local window_total = 0
-    local cutoff = now - windowSeconds
-    local kept = {}
-    for _, transaction in ipairs(transactions) do
-        if transaction.timestamp > cutoff then
-            table.insert(kept, transaction)
-            window_total = window_total + transaction.amount
-        end
-    end
-    for i = #transactions, 1, -1 do
+	local window_total = 0
+	local cutoff = now - windowSeconds
+	local kept = {}
+	for _, transaction in ipairs(transactions) do
+		if transaction.timestamp > cutoff then
+			table.insert(kept, transaction)
+			window_total = window_total + transaction.amount
+		end
+	end
+	for i = #transactions, 1, -1 do
 		transactions[i] = nil
 		end
-    for _, t in ipairs(kept) do
+	for _, t in ipairs(kept) do
 		table.insert(transactions, t)
 	end
-    return window_total
+	return window_total
 end
 
 local function attemptTransaction(sender_id, receiver_id, amount, now)
-    local sender = getOrCreate(ledger.send, sender_id)
-    local receiver = getOrCreate(ledger.receive, receiver_id)
-    local short_total = getWindowTotal(sender.short_transactions, now, Config.server.shortWindowSeconds)
-    local long_total = getWindowTotal(sender.long_transactions, now, Config.server.longWindowSeconds)
-    if sender.session_total + amount > Config.server.sessionTransactionMax then
-        return false
-    end
-    if short_total > 0 and short_total + amount > Config.server.shortWindowMax then
-        return false
-    end
-    if long_total > 0 and long_total + amount > Config.server.longWindowMax then
-        return false
-    end
-    if receiver.session_total + amount > Config.server.sessionReceiveMax then
-        return false
-    end
-    sender.session_total = sender.session_total + amount
-    receiver.session_total = receiver.session_total + amount
+	local sender = getOrCreate(ledger.send, sender_id)
+	local receiver = getOrCreate(ledger.receive, receiver_id)
+	local short_total = getWindowTotal(sender.short_transactions, now, Config.server.shortWindowSeconds)
+	local long_total = getWindowTotal(sender.long_transactions, now, Config.server.longWindowSeconds)
+	if sender.session_total + amount > Config.server.sessionTransactionMax then
+		return false
+	end
+	if short_total > 0 and short_total + amount > Config.server.shortWindowMax then
+		return false
+	end
+	if long_total > 0 and long_total + amount > Config.server.longWindowMax then
+		return false
+	end
+	if receiver.session_total + amount > Config.server.sessionReceiveMax then
+		return false
+	end
+	sender.session_total = sender.session_total + amount
+	receiver.session_total = receiver.session_total + amount
 	if amount <= Config.server.shortWindowMax then
 		table.insert(sender.short_transactions, { amount = amount, timestamp = now })
 	end
 	if amount <= Config.server.longWindowMax then
 		table.insert(sender.long_transactions, { amount = amount, timestamp = now })
 	end
-    return true
+	return true
 end
 
 function payPlayer(player_id, data)
@@ -263,11 +263,11 @@ function txClearAll(player_id)
 end
 
 function speedTrap(player_id, data)
-    local speedTrapData = Util.JsonDecode(data)
-    local triggerName = speedTrapData.triggerName
-    local triggerNumber = tonumber(string.match(triggerName, "%d+"))
-    local triggerPlace = trapNames[triggerNumber] or "Unknown"
-    local player_name = MP.GetPlayerName(player_id)
+	local speedTrapData = Util.JsonDecode(data)
+	local triggerName = speedTrapData.triggerName
+	local triggerNumber = tonumber(string.match(triggerName, "%d+"))
+	local triggerPlace = trapNames[triggerNumber] or "Unknown"
+	local player_name = MP.GetPlayerName(player_id)
 	MP.SendNotification(-1, "Speed Violation by " .. player_name .. "!", "survellianceCamera", "survellianceCamera")
 	MP.SendNotification(-1, "Speed: " .. string.format( "%.1f", speedTrapData.playerSpeed * 2.23694 ) .. " in " .. string.format( "%.0f", speedTrapData.speedLimit * 2.23694 ) .. " MPH Zone", "powerGauge05", "powerGauge05")
 	MP.SendNotification(-1, "Location: " .. triggerPlace, "location1", "location1")
@@ -276,11 +276,11 @@ function speedTrap(player_id, data)
 end
 
 function redLight(player_id, data)
-    local redLightData = Util.JsonDecode(data)
-    local triggerName = redLightData.triggerName
-    local triggerNumber = tonumber(string.match(triggerName, "%d+"))
-    local triggerPlace = trapNames[triggerNumber] or "Unknown"
-    local player_name = MP.GetPlayerName(player_id)
+	local redLightData = Util.JsonDecode(data)
+	local triggerName = redLightData.triggerName
+	local triggerNumber = tonumber(string.match(triggerName, "%d+"))
+	local triggerPlace = trapNames[triggerNumber] or "Unknown"
+	local player_name = MP.GetPlayerName(player_id)
 	MP.SendNotification(-1, "Failure to stop at Red Light by " .. player_name .. "!", "trafficLight", "trafficLight")
 	MP.SendNotification(-1, "Speed: " .. string.format( "%.1f", redLightData.playerSpeed * 2.23694 ) .. " MPH", "powerGauge05", "powerGauge05")
 	MP.SendNotification(-1, "Location: " .. triggerPlace, "location1", "location1")
@@ -300,12 +300,12 @@ function careerVehSyncRequested(player_id)
 end
 
 function careerPrefabSync(player_id, data)
-    local prefab = Util.JsonDecode(data)
-    if prefab.pLoad == true then
-        loadedPrefabs[player_id][prefab.pName] = prefab
-    elseif prefab.pLoad == false then
-        loadedPrefabs[player_id][prefab.pName] = nil
-    end
+	local prefab = Util.JsonDecode(data)
+	if prefab.pLoad == true then
+		loadedPrefabs[player_id][prefab.pName] = prefab
+	elseif prefab.pLoad == false then
+		loadedPrefabs[player_id][prefab.pName] = nil
+	end
 	for id in pairs(MP.GetPlayers()) do
 		if player_id ~= id then
 			MP.TriggerClientEvent(id, "rxPrefabSync", data)
@@ -318,15 +318,15 @@ function careerSyncRequested(player_id)
 end
 
 function prefabSyncRequested(player_id)
-    for id in pairs(MP.GetPlayers()) do
+	for id in pairs(MP.GetPlayers()) do
 		if player_id ~= id then
 			if loadedPrefabs[id] then
 				for k,v in pairs(loadedPrefabs[id]) do
 					MP.TriggerClientEventJson(player_id, "rxPrefabSync", loadedPrefabs[id][k])
 				end
 			end
-        end
-    end
+		end
+	end
 end
 
 function careerVehicleActiveHandler(player_id, data)
@@ -341,7 +341,7 @@ function careerVehicleActiveHandler(player_id, data)
 end
 
 function onPlayerJoinHandler(player_id)
-    loadedPrefabs[player_id] = {}
+	loadedPrefabs[player_id] = {}
 end
 
 function onVehicleSpawnHandler(player_id, vehicle_id,  data)
@@ -377,7 +377,7 @@ function onConsoleInputHandler(message)
 		return ""
 	end
 	local commandPrefix = message:sub(1, space)
-    if commandPrefix == "CareerMP " or "CMP " then
+	if commandPrefix == "CareerMP " or "CMP " then
 		local prefixLen = commandPrefix:len()
 		message = message:sub(prefixLen + 1)
 		local command = message
@@ -388,160 +388,160 @@ function onConsoleInputHandler(message)
 		end
 		MP.TriggerLocalEvent(command, arguments)
 	end
-    return ""
+	return ""
 end
 
 function CheckValue(value)
-    if tonumber(value) then
-        return tonumber(value)
-    elseif value == "true" then
-        return true
-    elseif value == "false" then
-        return false
-    end
-    return value
+	if tonumber(value) then
+		return tonumber(value)
+	elseif value == "true" then
+		return true
+	elseif value == "false" then
+		return false
+	end
+	return value
 end
 
 function GetConfig(arguments)
-    Config = ReadJson(configPath .. "config.json")
-    if #arguments == 0 then
-        print(Config)
-    elseif #arguments == 1 then
-        print(Config[arguments[1]])
-    else
-        print(Config[arguments[1]][arguments[2]])
-    end
+	Config = ReadJson(configPath .. "config.json")
+	if #arguments == 0 then
+		print(Config)
+	elseif #arguments == 1 then
+		print(Config[arguments[1]])
+	else
+		print(Config[arguments[1]][arguments[2]])
+	end
 end
 
 function SetConfig(arguments)
-    if #arguments < 3 then
-        print("Usage: Command SetConfig <section> <key> <value>")
-        return
-    end
-    Config = ReadJson(configPath .. "config.json")
-    local section = arguments[1]
-    local key = arguments[2]
-    local value = arguments[3]
-    if not Config[section] then
-        print("[CareerMP] ---------- Unknown section: " .. section)
-        return
-    end
-    if Config[section][key] == nil then
-        print("[CareerMP] ---------- Unknown key: " .. section .. "." .. key)
-        return
-    end
-    Config[section][key] = CheckValue(value)
-    print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
-    WriteJson(configPath .. "config.json", Config)
+	if #arguments < 3 then
+		print("Usage: Command SetConfig <section> <key> <value>")
+		return
+	end
+	Config = ReadJson(configPath .. "config.json")
+	local section = arguments[1]
+	local key = arguments[2]
+	local value = arguments[3]
+	if not Config[section] then
+		print("[CareerMP] ---------- Unknown section: " .. section)
+		return
+	end
+	if Config[section][key] == nil then
+		print("[CareerMP] ---------- Unknown key: " .. section .. "." .. key)
+		return
+	end
+	Config[section][key] = CheckValue(value)
+	print("[CareerMP] ---------- Config:    " .. section .. "." .. tostring(key) .. " --> " .. tostring(Config[section][key]))
+	WriteJson(configPath .. "config.json", Config)
 	MP.TriggerClientEventJson(-1, "rxClientConfigUpdate", Config.client)
 end
 
 function ParseQuotedString(input, startIndex)
-    local closingQuoteIndex = input:find('"', startIndex + 1)
-    if closingQuoteIndex then
-        local value = input:sub(startIndex + 1, closingQuoteIndex - 1)
-        return value, closingQuoteIndex + 2
-    else
-        local value = input:sub(startIndex + 1)
-        return value, nil
-    end
+	local closingQuoteIndex = input:find('"', startIndex + 1)
+	if closingQuoteIndex then
+		local value = input:sub(startIndex + 1, closingQuoteIndex - 1)
+		return value, closingQuoteIndex + 2
+	else
+		local value = input:sub(startIndex + 1)
+		return value, nil
+	end
 end
 
 function ParseWord(input, startIndex)
-    local nextSpaceIndex = input:find(' ', startIndex)
-    if nextSpaceIndex then
-        local value = input:sub(startIndex, nextSpaceIndex - 1)
-        return value, nextSpaceIndex + 1
-    else
-        return input:sub(startIndex), nil
-    end
+	local nextSpaceIndex = input:find(' ', startIndex)
+	if nextSpaceIndex then
+		local value = input:sub(startIndex, nextSpaceIndex - 1)
+		return value, nextSpaceIndex + 1
+	else
+		return input:sub(startIndex), nil
+	end
 end
 
 function ParseCommand(message, separator)
-    local arguments = {}
-    local command = nil
-    if separator then
-        command = message:sub(1, separator - 1)
-        local argumentsString = message:sub(separator + 1)
-        local currentIndex = 1
-        while currentIndex <= #argumentsString do
-            local currentChar = argumentsString:sub(currentIndex, currentIndex)
-            if currentChar == '"' then
-                local value, nextIndex = ParseQuotedString(argumentsString, currentIndex)
-                table.insert(arguments, value)
-                if not nextIndex then
+	local arguments = {}
+	local command = nil
+	if separator then
+		command = message:sub(1, separator - 1)
+		local argumentsString = message:sub(separator + 1)
+		local currentIndex = 1
+		while currentIndex <= #argumentsString do
+			local currentChar = argumentsString:sub(currentIndex, currentIndex)
+			if currentChar == '"' then
+				local value, nextIndex = ParseQuotedString(argumentsString, currentIndex)
+				table.insert(arguments, value)
+				if not nextIndex then
 					break
 				end
-                currentIndex = nextIndex
-            elseif currentChar ~= ' ' then
-                local value, nextIndex = ParseWord(argumentsString, currentIndex)
-                table.insert(arguments, value)
-                if not nextIndex then
+				currentIndex = nextIndex
+			elseif currentChar ~= ' ' then
+				local value, nextIndex = ParseWord(argumentsString, currentIndex)
+				table.insert(arguments, value)
+				if not nextIndex then
 					break
 				end
-                currentIndex = nextIndex
-            else
-                currentIndex = currentIndex + 1
-            end
-        end
-    end
-    return command, arguments
+				currentIndex = nextIndex
+			else
+				currentIndex = currentIndex + 1
+			end
+		end
+	end
+	return command, arguments
 end
 
 function ReadJson(path)
-    if not path then
-        print("[CareerMP] ---------- ReadJson:  path is nil!")
-        return
-    end
-    if not FS.Exists(path) then
-        print("[CareerMP] ---------- ReadJson:  " .. path .. " does not exist!")
-        return
-    end
-    local jsonFile, err = io.open(path, "r")
-    if not jsonFile then
-        print("[CareerMP] ---------- ReadJson:  failed to open " .. path .. ": " .. tostring(err))
-        return
-    end
-    local jsonText = jsonFile:read("*a")
-    jsonFile:close()
-    if not jsonText or jsonText == "" then
-        print("[CareerMP] ---------- ReadJson:  " .. path .. " is empty!")
-        return
-    end
-    local data = Util.JsonDecode(jsonText)
-    if data == nil then
-        print("[CareerMP] ---------- ReadJson:  failed to decode " .. path)
-        return
-    end
-    return data
+	if not path then
+		print("[CareerMP] ---------- ReadJson:  path is nil!")
+		return
+	end
+	if not FS.Exists(path) then
+		print("[CareerMP] ---------- ReadJson:  " .. path .. " does not exist!")
+		return
+	end
+	local jsonFile, err = io.open(path, "r")
+	if not jsonFile then
+		print("[CareerMP] ---------- ReadJson:  failed to open " .. path .. ": " .. tostring(err))
+		return
+	end
+	local jsonText = jsonFile:read("*a")
+	jsonFile:close()
+	if not jsonText or jsonText == "" then
+		print("[CareerMP] ---------- ReadJson:  " .. path .. " is empty!")
+		return
+	end
+	local data = Util.JsonDecode(jsonText)
+	if data == nil then
+		print("[CareerMP] ---------- ReadJson:  failed to decode " .. path)
+		return
+	end
+	return data
 end
 
 function WriteJson(path, data)
-    if not path then
-        print("[CareerMP] ---------- WriteJson: path is nil!")
-        return
-    end
-    if data == nil then
-        print("[CareerMP] ---------- WriteJson: data is nil, aborting!")
-        return
-    end
-    local checkDirectory = path:match("(.+)/[^/]+$")
-    if checkDirectory and not FS.Exists(checkDirectory) then
-        FS.CreateDirectory(checkDirectory)
-        print("[CareerMP] ---------- WriteJson: created directory " .. checkDirectory)
-    end
-    local encoded = Util.JsonEncode(data)
-    if not encoded then
-        print("[CareerMP] ---------- WriteJson: failed to encode data!")
-        return
-    end
-    local jsonFile, err = io.open(path, "w")
-    if not jsonFile then
-        print("[CareerMP] ---------- WriteJson: failed to open " .. path .. ": " .. tostring(err))
-        return
-    end
-    print("[CareerMP] ---------- WriteJson: writing " .. path)
-    jsonFile:write(Util.JsonPrettify(encoded))
-    jsonFile:close()
-    return true
+	if not path then
+		print("[CareerMP] ---------- WriteJson: path is nil!")
+		return
+	end
+	if data == nil then
+		print("[CareerMP] ---------- WriteJson: data is nil, aborting!")
+		return
+	end
+	local checkDirectory = path:match("(.+)/[^/]+$")
+	if checkDirectory and not FS.Exists(checkDirectory) then
+		FS.CreateDirectory(checkDirectory)
+		print("[CareerMP] ---------- WriteJson: created directory " .. checkDirectory)
+	end
+	local encoded = Util.JsonEncode(data)
+	if not encoded then
+		print("[CareerMP] ---------- WriteJson: failed to encode data!")
+		return
+	end
+	local jsonFile, err = io.open(path, "w")
+	if not jsonFile then
+		print("[CareerMP] ---------- WriteJson: failed to open " .. path .. ": " .. tostring(err))
+		return
+	end
+	print("[CareerMP] ---------- WriteJson: writing " .. path)
+	jsonFile:write(Util.JsonPrettify(encoded))
+	jsonFile:close()
+	return true
 end
