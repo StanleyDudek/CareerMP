@@ -166,7 +166,7 @@ local function onVehicleSpawned(gameVehicleID) --called by the base game when a 
 		local veh = be:getObjectByID(gameVehicleID) --get the vehicle object
 		if veh then --check nil
 			veh:setField('renderDistance', '', 6969) --set the render distance sufficiently high that you can see players and traffic on the map surface from the bigmap view
-			veh:queueLuaCommand('careerMPEnabler.onVehicleReady(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')') --trigger a vehicle lua event that will call back when the vehicle is ready, AKA you can get the data you might need from it
+			veh:queueLuaCommand('careerMPEnabler.onVehicleReady()') --trigger a vehicle lua event that will call back when the vehicle is ready, AKA you can get the data you might need from it
 		end
 		if not MPVehicleGE.isOwn(gameVehicleID) then --if it is a remote vehicle
 			TriggerServerEvent("careerVehSyncRequested", "") --tell the server we want an up to date list of active vehicle states
@@ -180,6 +180,13 @@ local function onVehicleReady(gameVehicleID) --called from vehicle lua when the 
 		if not MPVehicleGE.isOwn(gameVehicleID) then --if it is a remote vehicle
 			local vehicles = MPVehicleGE.getVehicles() --get the list of vehicles from BeamMP
 			local veh = be:getObjectByID(gameVehicleID) --get the ready vehicle as an object using its gameVehicleID
+			if veh.JBeam == "unicycle" then
+				if clientConfig then
+					if not clientConfig.unicycleCollisionEnabled then
+						veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')')
+					end
+				end
+			end
 			if hiddens[veh.JBeam] then --if it is an object that should have the nametag hidden
 				vehicles[serverVehicleID].hideNametag = true --hide the nametag
 			else
@@ -398,6 +405,17 @@ end
 local function onUpdate(dtReal, dtSim, dtRaw) --called by base game every update
 	if worldReadyState == 2 then --if the level is loaded
 		patchBeamMP() --patch BeamMP's unicycle deletion
+		if clientConfig then
+			local vehicles = MPVehicleGE.getVehicles()
+			for serverVehicleID in pairs(vehicles) do
+				local veh = be:getObjectByID(vehicles[serverVehicleID].gameVehicleID)
+				if veh then
+					if veh.JBeam == "unicycle" then
+						veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleCollisionEnabled) .. ')')
+					end
+				end
+			end
+		end
 	end
 end
 
