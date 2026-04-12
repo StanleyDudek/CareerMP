@@ -440,8 +440,8 @@ local function onClientPostStartMission(levelPath)
 end
 
 local function onUpdate(dtReal, dtSim, dtRaw)
+	patchBeamMP()
 	if worldReadyState == 2 then
-		patchBeamMP()
 		if clientConfig then
 			local vehicles = MPVehicleGE.getVehicles()
 			for serverVehicleID in pairs(vehicles) do
@@ -478,6 +478,9 @@ end
 
 local function onServerLeave()
 	unPatchBeamMP()
+	blockedInputActions = {}
+	extensions.core_input_actionFilter.setGroup('careerMP', blockedInputActions)
+	extensions.core_input_actionFilter.addAction(0, 'careerMP', false)
 	setTrafficSettings(userTrafficSettings)
 	setGameplaySettings(userGameplaySettings)
 end
