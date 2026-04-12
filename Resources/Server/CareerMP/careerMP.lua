@@ -24,6 +24,12 @@ local defaultConfig = {
 		parkedTrafficEnabled = false,
 		worldEditorEnabled = false,
 		consoleEnabled = false,
+		simplifyRemoteVehicles = false,
+		spawnVehicleIgnitionLevel = 0,
+		skipOtherPlayersVehicles = false,
+		trafficSmartSelections = true,
+		trafficSimpleVehicles = true,
+		trafficAllowMods = false
 	}
 }
 
