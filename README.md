@@ -39,6 +39,20 @@ Updates to any of these could possibly render CareerMP non-functional without no
 1. Download the latest [release](https://github.com/StanleyDudek/CareerMP/releases/) and unpack the contents to the root directory of your BeamMP server directory
 2. Set `MaxCars = 100` or greater in your `ServerConfig.toml`
 3. Set `Map = "/levels/west_coast_usa/info.json"` in your `ServerConfig.toml`
+4. Once run with CareerMP installed, a config file will be generated
+
+## Server Console Usage
+To read config settings:
+
+`CareerMP GetConfig <section> <key>`
+
+`CMP GetConfig <section> <key>`
+
+To set config settings:
+
+`CareerMP SetConfig <section> <key> <value>`
+
+`CMP SetConfig <section> <key> <value>`
 
 ## Notes
 As CareerMP relies on the base game's career mode, it currently will only function on the West Coast, USA map.
