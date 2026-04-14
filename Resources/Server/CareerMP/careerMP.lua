@@ -1,4 +1,22 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
+--Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
+
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 28}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 28}
+
+local RAW = "https://raw.githubusercontent.com/"
+local GITHUB_REPO = "StanleyDudek/CareerMP/"
+local BRANCH = "main/"
+local CLIENT_PATH = "Resources/Client/"
+local CLIENT_FILE = "CareerMP.zip"
+local SERVER_PATH = "Resources/Server/CareerMP/"
+local SERVER_FILE = "careerMP.lua"
+local CLIENT_VERSION_FILE = "versions/client.json"
+local SERVER_VERSION_FILE = "versions/server.json"
+local CLIENT_URL = RAW .. GITHUB_REPO .. BRANCH .. CLIENT_PATH .. CLIENT_FILE
+local SERVER_URL = RAW .. GITHUB_REPO .. BRANCH .. SERVER_PATH .. SERVER_FILE
+local CLIENT_UPDATE_URL = RAW .. GITHUB_REPO .. BRANCH .. SERVER_PATH .. CLIENT_VERSION_FILE
+local SERVER_UPDATE_URL = RAW .. GITHUB_REPO .. BRANCH .. SERVER_PATH .. SERVER_VERSION_FILE
 
 local configPath = "Resources/Server/CareerMP/config/"
 
@@ -54,9 +72,123 @@ local trapNames = {
 	[7] = "Island Port Southbound"
 }
 
+function downloadVersionFile(url, path)
+	local response
+    if MP.GetOSName() == "Windows" then
+        response = os.execute('powershell -Command "Invoke-WebRequest -Uri ' .. url .. ' -OutFile ' .. path .. '"')
+    else
+        response = os.execute("wget -q -O " .. path .. " " .. url)
+    end
+	if response then
+		local file = io.open(path, "r")
+		if file then
+			local data = file:read("*all")
+			file:close()
+			return data
+		end
+	else
+		return nil
+	end
+end
+
+function downloadFile(url, path)
+	local response
+    if MP.GetOSName() == "Windows" then
+        response = os.execute('powershell -Command "Invoke-WebRequest -Uri ' .. url .. ' -OutFile ' .. path .. '"')
+    else
+        response = os.execute("wget -q -O " .. path .. " " .. url)
+    end
+	return response
+end
+
+local function needsUpdate(installed, latest)
+    local components = { "major", "minor", "revision" }
+    for _, key in pairs(components) do
+        local i, l = installed[key] or 0, latest[key] or 0
+        if l > i then
+            return true
+        end
+        if l < i then
+            return false
+        end
+    end
+    return false
+end
+
+local function updateClient()
+    local installed = ReadJson(SERVER_PATH .. CLIENT_VERSION_FILE)
+	if not installed then
+        print("[CareerMP] ---------- Applying self version!")
+		installed = HARD_CLIENT_VERSION
+		WriteJson(SERVER_PATH .. CLIENT_VERSION_FILE, HARD_CLIENT_VERSION)
+	end
+    local latestVersionFile = downloadVersionFile(CLIENT_UPDATE_URL, SERVER_PATH .. CLIENT_VERSION_FILE)
+	local latest = Util.JsonDecode(latestVersionFile)
+    if not latest then
+        print("[CareerMP] ---------- Failed to fetch latest client version!")
+        return
+    end
+	local update = needsUpdate(installed, latest)
+    if installed then
+        print("[CareerMP] ---------- Client installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+        print("[CareerMP] ---------- Client latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
+        if update then
+			print("[CareerMP] ---------- Updating client...")
+			downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
+			print("[CareerMP] ---------- Client updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+		else
+			print("[CareerMP] ---------- Client up to date!")
+			return
+		end
+	else
+		print("[CareerMP] ---------- Client version not found.")
+        downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
+        print("[CareerMP] ---------- Client version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+    end
+end
+
+local function updateServer()
+    local installed = ReadJson(SERVER_PATH .. SERVER_VERSION_FILE)
+	if not installed then
+        print("[CareerMP] ---------- Applying self version!")
+		installed = HARD_SERVER_VERSION
+		WriteJson(SERVER_PATH .. SERVER_VERSION_FILE, HARD_SERVER_VERSION)
+	end
+    local latestVersionFile = downloadVersionFile(SERVER_UPDATE_URL, SERVER_PATH .. SERVER_VERSION_FILE)
+    local latest = Util.JsonDecode(latestVersionFile)
+    if not latest then
+        print("[CareerMP] ---------- Failed to fetch latest server version")
+        return
+    end
+	local update = needsUpdate(installed, latest)
+    if installed then
+        print("[CareerMP] ---------- Server installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+        print("[CareerMP] ---------- Server latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
+        if update then
+			print("[CareerMP] ---------- Updating server...")
+			downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
+			print("[CareerMP] ---------- Server updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+		else
+			print("[CareerMP] ---------- Server up to date!")
+			return
+		end
+	else
+		print("[CareerMP] ---------- Server version not found.")
+        downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
+        print("[CareerMP] ---------- Server version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+    end
+end
+
 function onInit()
 
 	print("[CareerMP] ---------- CareerMP Loading...")
+
+	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
+		FS.CreateDirectory(SERVER_PATH .. "/versions")
+	end
+
+	updateClient()
+	updateServer()
 
 	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
 	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
@@ -122,7 +254,6 @@ function PrepareConfig()
 				Config[section] = {}
 				for field, value in pairs(fields) do
 					print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " set to " .. tostring(value))
-					
 					Config[section][field] = value
 				end
 			else
@@ -466,7 +597,7 @@ end
 
 function SetConfig(arguments)
 	if #arguments < 3 then
-		print("Usage: Command SetConfig <section> <key> <value>")
+		print("Usage: CareerMP SetConfig <section> <key> <value>")
 		return
 	end
 	Config = ReadJson(configPath .. "config.json")
