@@ -22,6 +22,7 @@ local configPath = "Resources/Server/CareerMP/config/"
 
 local defaultConfig = {
 	server = {
+		autoUpdate = true,
 		longWindowMax = 10000,
 		shortWindowMax = 1000,
 		longWindowSeconds = 300,
@@ -183,13 +184,6 @@ function onInit()
 
 	print("[CareerMP] ---------- CareerMP Loading...")
 
-	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
-		FS.CreateDirectory(SERVER_PATH .. "/versions")
-	end
-
-	updateClient()
-	updateServer()
-
 	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
 	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
 
@@ -228,6 +222,15 @@ function onInit()
 	MP.RegisterEvent("SetConfig","SetConfig")
 
 	PrepareConfig()
+
+	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
+		FS.CreateDirectory(SERVER_PATH .. "/versions")
+	end
+
+	if Config.server.autoUpdate then
+		updateClient()
+		updateServer()
+	end
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
 end
