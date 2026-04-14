@@ -119,64 +119,64 @@ end
 local function updateClient()
     local installed = ReadJson(SERVER_PATH .. CLIENT_VERSION_FILE)
 	if not installed then
-        print("[CareerMP] ---------- Applying self version!")
+        print("[CareerMP] ---------- CareerMP Update Applying self version!")
 		installed = HARD_CLIENT_VERSION
 		WriteJson(SERVER_PATH .. CLIENT_VERSION_FILE, HARD_CLIENT_VERSION)
 	end
     local latestVersionFile = downloadVersionFile(CLIENT_UPDATE_URL, SERVER_PATH .. CLIENT_VERSION_FILE)
 	local latest = Util.JsonDecode(latestVersionFile)
     if not latest then
-        print("[CareerMP] ---------- Failed to fetch latest client version!")
+        print("[CareerMP] ---------- CareerMP Update Failed to fetch latest client version!")
         return
     end
 	local update = needsUpdate(installed, latest)
     if installed then
-        print("[CareerMP] ---------- Client installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
-        print("[CareerMP] ---------- Client latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
+        print("[CareerMP] ---------- CareerMP Update Client installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+        print("[CareerMP] ---------- CareerMP Update Client latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
         if update then
-			print("[CareerMP] ---------- Updating client...")
+			print("[CareerMP] ---------- CareerMP Update Updating client...")
 			downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
-			print("[CareerMP] ---------- Client updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+			print("[CareerMP] ---------- CareerMP Update Client updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
 		else
-			print("[CareerMP] ---------- Client up to date!")
+			print("[CareerMP] ---------- CareerMP Update Client up to date!")
 			return
 		end
 	else
-		print("[CareerMP] ---------- Client version not found.")
+		print("[CareerMP] ---------- CareerMP Update Client version not found.")
         downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
-        print("[CareerMP] ---------- Client version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+        print("[CareerMP] ---------- CareerMP Update Client version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
     end
 end
 
 local function updateServer()
     local installed = ReadJson(SERVER_PATH .. SERVER_VERSION_FILE)
 	if not installed then
-        print("[CareerMP] ---------- Applying self version!")
+        print("[CareerMP] ---------- CareerMP Update Applying self version!")
 		installed = HARD_SERVER_VERSION
 		WriteJson(SERVER_PATH .. SERVER_VERSION_FILE, HARD_SERVER_VERSION)
 	end
     local latestVersionFile = downloadVersionFile(SERVER_UPDATE_URL, SERVER_PATH .. SERVER_VERSION_FILE)
     local latest = Util.JsonDecode(latestVersionFile)
     if not latest then
-        print("[CareerMP] ---------- Failed to fetch latest server version")
+        print("[CareerMP] ---------- CareerMP Update Failed to fetch latest server version")
         return
     end
 	local update = needsUpdate(installed, latest)
     if installed then
-        print("[CareerMP] ---------- Server installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
-        print("[CareerMP] ---------- Server latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
+        print("[CareerMP] ---------- CareerMP Update Server installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+        print("[CareerMP] ---------- CareerMP Update Server latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
         if update then
-			print("[CareerMP] ---------- Updating server...")
+			print("[CareerMP] ---------- CareerMP Update Updating server...")
 			downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
-			print("[CareerMP] ---------- Server updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+			print("[CareerMP] ---------- CareerMP Update Server updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
 		else
-			print("[CareerMP] ---------- Server up to date!")
+			print("[CareerMP] ---------- CareerMP Update Server up to date!")
 			return
 		end
 	else
-		print("[CareerMP] ---------- Server version not found.")
+		print("[CareerMP] ---------- CareerMP Update Server version not found.")
         downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
-        print("[CareerMP] ---------- Server version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
+        print("[CareerMP] ---------- CareerMP Update Server version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
     end
 end
 
