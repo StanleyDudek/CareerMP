@@ -122,7 +122,7 @@ local function updateClient()
 	local installed = FS.Exists(CLIENT_PATH .. CLIENT_FILE)
 	if not installed then
 		print("[CareerMP] ---------- CareerMP Update Client not installed, downloading...")
-		downloadFile(CLIENT_URL, SERVER_PATH .. CLIENT_FILE)
+		downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
 	end
 	if not installedVersion then
         print("[CareerMP] ---------- CareerMP Update Applying self version!")
