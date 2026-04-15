@@ -7,22 +7,23 @@ Enabling [BeamNG.drive](https://beamng.com/game/)'s Career Mode in [BeamMP](http
 ## Overview
 The goal of CareerMP is not to change the base game career mode or create my own unique multiplayer career mode like others have done before to good effect, but to provide whatever handling is necessary on the BeamMP client and server to allow the base game career mode to function as multiplayer, so you can play career mode with friends in the same space.
 
-This is basically the same as single player career mode, and ~~all~~ most of what that means, but in addition to you, there will be real players doing their own careers as well.
+This is basically the same as single player career mode, but there will be real players doing their own careers as well.
 
 ## Highlights / Features
 - Support for all base-game career features at parity with single player career mode
 - Saves are local, you can continue on another server running CareerMP, you can take an online save offline and vice versa
-- Mod vehicles that the base game already support in career mode ~~can spawn in traffic and~~ can be found at dealerships
+- Mod vehicles that the base game already support in career mode can spawn in traffic and can be found at dealerships
 - Render distance of vehicles have been increased so that you can see players on the bigMap
-- ~~Forced simple_traffic models are used, in freeroaming career, players spawn 2 road traffic vehicles each; missions, challenges, scenarios add additional unmetered traffic~~
+- By default, simple_traffic models are used, in freeroaming career, players can spawn a server configured number of road and parked traffic vehicles each; missions, challenges, scenarios add additional unmetered traffic
 - Traffic Signals are synced, for a congruent experience for all players
 - Red light camera / speed trap data broadcasts
-- Dragrace scoreboard display and winner light syncing
+- Dragrace tree, scoreboard display, and winner light syncing
 - Missions, challenges, scenarios prefabs (track layouts, barriers, hay bales, barrels, arrow signs, gates, unique structures, et cetera) are synced on the fly so you can observe others engage in these activities and have to find creative ways around should they block your path
 - MP UI app injection into missions, challenges, scenarios, making sure you can see chat or quit the session from most points of play
 - Syncing the active states (shown or hidden) of vehicles is a critical part of behind the scenes functionality
 - Nametag visibility supression for many spawnables including traffic to limit visual clutter
 - Playerlist based payment system to pay other players
+- Handful of fixed basegame bugs related to insurance
 
 ## Requirements
 Due to multiplayer overhead, client performance requirements are accordingly more demanding than single player career. Players with moderate systems have reported 5-10% impact compared to an unmodded BeamMP server lobby, high end systems are not really affected, and low end systems will suffer and struggle to maintain realtime physics and position sync if they are running fewer than 20-30 FPS.
@@ -39,20 +40,16 @@ Updates to any of these could possibly render CareerMP non-functional without no
 1. Download the latest [release](https://github.com/StanleyDudek/CareerMP/releases/) and unpack the contents to the root directory of your BeamMP server directory
 2. Set `MaxCars = 100` or greater in your `ServerConfig.toml`
 3. Set `Map = "/levels/west_coast_usa/info.json"` in your `ServerConfig.toml`
-4. Once run with CareerMP installed, a config file will be generated
+4. Once the server is run with CareerMP installed, a config file will be generated, and a client mod .zip will be fetched if it is not present in `.../Resources/Client/`.
+5. Configure CareerMP how you like from the server console, or by editing the settings in `.../Resources/Server/CareerMP/config/config.json`
+6. Since version 0.0.28, CareerMP can autoUpdate itself. Once installed on your server, there are various ways to apply the update, from Restarting the server to manually running console commands, and if you have restart scripts for your server, then it also supports autoRestart
+
 
 ## Server Console Usage
-To read config settings:
+To see CareerMP server console commands, type `CareerMP Help` in the server console
 
-`CareerMP GetConfig <section> <key>`
+<img width="1098" height="155" alt="image" src="https://github.com/user-attachments/assets/ffe64e84-09db-4894-8338-3835dbad39ac" />
 
-`CMP GetConfig <section> <key>`
-
-To set config settings:
-
-`CareerMP SetConfig <section> <key> <value>`
-
-`CMP SetConfig <section> <key> <value>`
 
 ## Notes
 As CareerMP relies on the base game's career mode, it currently will only function on the West Coast, USA map.
