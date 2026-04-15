@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 28}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 28}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 29}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 29}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
@@ -404,7 +404,7 @@ local function attemptTransaction(sender_id, receiver_id, amount, now)
 	local receiver = getOrCreate(ledger.receive, receiver_id)
 	local short_total = getWindowTotal(sender.short_transactions, now, Config.server.shortWindowSeconds)
 	local long_total = getWindowTotal(sender.long_transactions, now, Config.server.longWindowSeconds)
-	if sender.session_total + amount > Config.server.sessionTransactionMax then
+	if sender.session_total + amount > Config.server.sessionSendingMax then
 		return false
 	end
 	if short_total > 0 and short_total + amount > Config.server.shortWindowMax then
