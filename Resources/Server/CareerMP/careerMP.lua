@@ -74,7 +74,7 @@ local trapNames = {
 	[7] = "Island Port Southbound"
 }
 
-function downloadVersionFile(url, path)
+local function downloadVersionFile(url, path)
 	local response
     if MP.GetOSName() == "Windows" then
         response = os.execute('powershell -Command "Invoke-WebRequest -Uri ' .. url .. ' -OutFile ' .. path .. '"')
@@ -93,7 +93,7 @@ function downloadVersionFile(url, path)
 	end
 end
 
-function downloadFile(url, path)
+local function downloadFile(url, path)
 	local response
     if MP.GetOSName() == "Windows" then
         response = os.execute('powershell -Command "Invoke-WebRequest -Uri ' .. url .. ' -OutFile ' .. path .. '"')
@@ -183,66 +183,59 @@ local function updateServer()
 	return update
 end
 
-function onInit()
-
-	print("[CareerMP] ---------- CareerMP Loading...")
-
-	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
-	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
-
-	MP.RegisterEvent("payPlayer","payPlayer")
-
-	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
-	MP.RegisterEvent("careerSyncRequested","careerSyncRequested")
-	MP.RegisterEvent("prefabSyncRequested","prefabSyncRequested")
-	MP.RegisterEvent("careerVehSyncRequested","careerVehSyncRequested")
-	MP.RegisterEvent("careerVehicleActiveHandler","careerVehicleActiveHandler")
-
-	MP.RegisterEvent("txUpdateDisplay", "txUpdateDisplay")
-	MP.RegisterEvent("txUpdateWinnerLight", "txUpdateWinnerLight")
-	MP.RegisterEvent("txUpdateBlueLight", "txUpdateBlueLight")
-	MP.RegisterEvent("txUpdatePreStageLight", "txUpdatePreStageLight")
-	MP.RegisterEvent("txUpdateStageLight", "txUpdateStageLight")
-	MP.RegisterEvent("txUpdateDisqualifiedLight", "txUpdateDisqualifiedLight")
-	MP.RegisterEvent("txUpdateTreeLights", "txUpdateTreeLights")
-	MP.RegisterEvent("txClearDisplay", "txClearDisplay")
-	MP.RegisterEvent("txClearAll", "txClearAll")
-
-	MP.RegisterEvent("speedTrap", "speedTrap")
-	MP.RegisterEvent("redLight", "redLight")
-	MP.RegisterEvent("trafficLightTimer","trafficLightTimer")
-	MP.CreateEventTimer("trafficLightTimer", 10000)
-
-	MP.RegisterEvent("onPlayerJoin","onPlayerJoinHandler")
-	MP.RegisterEvent("onVehicleSpawn","onVehicleSpawnHandler")
-	MP.RegisterEvent("onVehicleEdited","onVehicleEditedHandler")
-	MP.RegisterEvent("onVehicleDeleted","onVehicleDeletedHandler")
-	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
-
-	MP.RegisterEvent("onConsoleInput","onConsoleInputHandler")
-
-	MP.RegisterEvent("GetConfig","GetConfig")
-	MP.RegisterEvent("SetConfig","SetConfig")
-
-	PrepareConfig()
-
-	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
-		FS.CreateDirectory(SERVER_PATH .. "/versions")
+local function parseQuotedString(input, startIndex)
+	local closingQuoteIndex = input:find('"', startIndex + 1)
+	if closingQuoteIndex then
+		local value = input:sub(startIndex + 1, closingQuoteIndex - 1)
+		return value, closingQuoteIndex + 2
+	else
+		local value = input:sub(startIndex + 1)
+		return value, nil
 	end
-
-	if Config.server.autoUpdate then
-		local update
-		update = updateClient()
-		update = updateServer()
-		if update and Config.server.autoRestart then
-			exit()
-		end
-	end
-
-	print("[CareerMP] ---------- CareerMP Loaded!")
 end
 
-function PrepareConfig()
+local function parseWord(input, startIndex)
+	local nextSpaceIndex = input:find(' ', startIndex)
+	if nextSpaceIndex then
+		local value = input:sub(startIndex, nextSpaceIndex - 1)
+		return value, nextSpaceIndex + 1
+	else
+		return input:sub(startIndex), nil
+	end
+end
+
+local function parseCommand(message, separator)
+	local arguments = {}
+	local command = nil
+	if separator then
+		command = message:sub(1, separator - 1)
+		local argumentsString = message:sub(separator + 1)
+		local currentIndex = 1
+		while currentIndex <= #argumentsString do
+			local currentChar = argumentsString:sub(currentIndex, currentIndex)
+			if currentChar == '"' then
+				local value, nextIndex = parseQuotedString(argumentsString, currentIndex)
+				table.insert(arguments, value)
+				if not nextIndex then
+					break
+				end
+				currentIndex = nextIndex
+			elseif currentChar ~= ' ' then
+				local value, nextIndex = parseWord(argumentsString, currentIndex)
+				table.insert(arguments, value)
+				if not nextIndex then
+					break
+				end
+				currentIndex = nextIndex
+			else
+				currentIndex = currentIndex + 1
+			end
+		end
+	end
+	return command, arguments
+end
+
+local function prepareConfig()
 	print("[CareerMP] ---------- CareerMP Config Loading...")
 	Config = ReadJson(configPath .. "config.json")
 	if not Config then
@@ -283,6 +276,67 @@ function PrepareConfig()
 		end
 	end
 	print("[CareerMP] ---------- CareerMP Config Loaded!")
+end
+
+function onInit()
+
+	print("[CareerMP] ---------- CareerMP Loading...")
+
+	MP.RegisterEvent("perPartPainting","perPartPaintingHandler")
+	MP.RegisterEvent("requestPartPaints","requestPartPaintsHandler")
+
+	MP.RegisterEvent("payPlayer","payPlayer")
+
+	MP.RegisterEvent("careerPrefabSync","careerPrefabSync")
+	MP.RegisterEvent("careerSyncRequested","careerSyncRequested")
+	MP.RegisterEvent("prefabSyncRequested","prefabSyncRequested")
+	MP.RegisterEvent("careerVehSyncRequested","careerVehSyncRequested")
+	MP.RegisterEvent("careerVehicleActiveHandler","careerVehicleActiveHandler")
+
+	MP.RegisterEvent("txUpdateDisplay", "txUpdateDisplay")
+	MP.RegisterEvent("txUpdateWinnerLight", "txUpdateWinnerLight")
+	MP.RegisterEvent("txUpdateBlueLight", "txUpdateBlueLight")
+	MP.RegisterEvent("txUpdatePreStageLight", "txUpdatePreStageLight")
+	MP.RegisterEvent("txUpdateStageLight", "txUpdateStageLight")
+	MP.RegisterEvent("txUpdateDisqualifiedLight", "txUpdateDisqualifiedLight")
+	MP.RegisterEvent("txUpdateTreeLights", "txUpdateTreeLights")
+	MP.RegisterEvent("txClearDisplay", "txClearDisplay")
+	MP.RegisterEvent("txClearAll", "txClearAll")
+
+	MP.RegisterEvent("speedTrap", "speedTrap")
+	MP.RegisterEvent("redLight", "redLight")
+	MP.RegisterEvent("trafficLightTimer","trafficLightTimer")
+	MP.CreateEventTimer("trafficLightTimer", 10000)
+
+	MP.RegisterEvent("onPlayerJoin","onPlayerJoinHandler")
+	MP.RegisterEvent("onVehicleSpawn","onVehicleSpawnHandler")
+	MP.RegisterEvent("onVehicleEdited","onVehicleEditedHandler")
+	MP.RegisterEvent("onVehicleDeleted","onVehicleDeletedHandler")
+	MP.RegisterEvent("onPlayerDisconnect","onPlayerDisconnectHandler")
+
+	MP.RegisterEvent("onConsoleInput","onConsoleInputHandler")
+
+	MP.RegisterEvent("GetConfig","GetConfig")
+	MP.RegisterEvent("SetConfig","SetConfig")
+	MP.RegisterEvent("Update","Update")
+	MP.RegisterEvent("Help","Help")
+
+	prepareConfig()
+
+	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
+		FS.CreateDirectory(SERVER_PATH .. "/versions")
+	end
+
+	if Config.server.autoUpdate then
+		local update
+		update = updateClient()
+		update = updateServer()
+		if update and Config.server.autoRestart then
+			exit()
+		end
+	end
+
+	print("[CareerMP] ---------- CareerMP Loaded!")
 end
 
 function perPartPaintingHandler(player_id, data)
@@ -576,14 +630,14 @@ function onConsoleInputHandler(message)
 		local arguments = {}
 		local separator = message:find(' ')
 		if separator then
-			command, arguments = ParseCommand(message, separator)
+			command, arguments = parseCommand(message, separator)
 		end
 		MP.TriggerLocalEvent(command, arguments)
 	end
 	return ""
 end
 
-function CheckValue(value)
+local function checkValue(value)
 	if tonumber(value) then
 		return tonumber(value)
 	elseif value == "true" then
@@ -622,62 +676,26 @@ function SetConfig(arguments)
 		print("[CareerMP] ---------- Unknown key: " .. section .. " " .. key)
 		return
 	end
-	Config[section][key] = CheckValue(value)
+	Config[section][key] = checkValue(value)
 	print("[CareerMP] ---------- Config:    " .. section .. " " .. tostring(key) .. " set to " .. tostring(Config[section][key]))
 	WriteJson(configPath .. "config.json", Config)
 	MP.TriggerClientEventJson(-1, "rxClientConfigUpdate", Config.client)
 end
 
-function ParseQuotedString(input, startIndex)
-	local closingQuoteIndex = input:find('"', startIndex + 1)
-	if closingQuoteIndex then
-		local value = input:sub(startIndex + 1, closingQuoteIndex - 1)
-		return value, closingQuoteIndex + 2
-	else
-		local value = input:sub(startIndex + 1)
-		return value, nil
+function Update(arguments)
+	local update
+	update = updateClient()
+	update = updateServer()
+	if update and Config.server.autoRestart then
+		exit()
 	end
 end
 
-function ParseWord(input, startIndex)
-	local nextSpaceIndex = input:find(' ', startIndex)
-	if nextSpaceIndex then
-		local value = input:sub(startIndex, nextSpaceIndex - 1)
-		return value, nextSpaceIndex + 1
-	else
-		return input:sub(startIndex), nil
-	end
-end
-
-function ParseCommand(message, separator)
-	local arguments = {}
-	local command = nil
-	if separator then
-		command = message:sub(1, separator - 1)
-		local argumentsString = message:sub(separator + 1)
-		local currentIndex = 1
-		while currentIndex <= #argumentsString do
-			local currentChar = argumentsString:sub(currentIndex, currentIndex)
-			if currentChar == '"' then
-				local value, nextIndex = ParseQuotedString(argumentsString, currentIndex)
-				table.insert(arguments, value)
-				if not nextIndex then
-					break
-				end
-				currentIndex = nextIndex
-			elseif currentChar ~= ' ' then
-				local value, nextIndex = ParseWord(argumentsString, currentIndex)
-				table.insert(arguments, value)
-				if not nextIndex then
-					break
-				end
-				currentIndex = nextIndex
-			else
-				currentIndex = currentIndex + 1
-			end
-		end
-	end
-	return command, arguments
+function Help(arguments)
+	print("CareerMP GetConfig <section> <key>            - Displays Config, or section, or key")
+	print("CareerMP SetConfig <section*> <key*> <value*> - Sets Config section key to value, * = REQUIRED")
+	print("CareerMP Update                               - Checks for CareerMP update")
+	print("CareerMP Help                                 - Displays Commands Usage")
 end
 
 function ReadJson(path)
