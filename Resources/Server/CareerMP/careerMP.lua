@@ -103,10 +103,10 @@ local function downloadFile(url, path)
 	return response
 end
 
-local function needsUpdate(installed, latest)
+local function needsUpdate(installedVersion, latest)
     local components = { "major", "minor", "revision" }
     for _, key in pairs(components) do
-        local i, l = installed[key] or 0, latest[key] or 0
+        local i, l = installedVersion[key] or 0, latest[key] or 0
         if l > i then
             return true
         end
@@ -118,10 +118,15 @@ local function needsUpdate(installed, latest)
 end
 
 local function updateClient()
-    local installed = ReadJson(SERVER_PATH .. CLIENT_VERSION_FILE)
+    local installedVersion = ReadJson(SERVER_PATH .. CLIENT_VERSION_FILE)
+	local installed = FS.Exists(CLIENT_PATH .. CLIENT_FILE)
 	if not installed then
+		print("[CareerMP] ---------- CareerMP Update Client not installed, downloading...")
+		downloadFile(CLIENT_URL, SERVER_PATH .. CLIENT_FILE)
+	end
+	if not installedVersion then
         print("[CareerMP] ---------- CareerMP Update Applying self version!")
-		installed = HARD_CLIENT_VERSION
+		installedVersion = HARD_CLIENT_VERSION
 		WriteJson(SERVER_PATH .. CLIENT_VERSION_FILE, HARD_CLIENT_VERSION)
 	end
     local latestVersionFile = downloadVersionFile(CLIENT_UPDATE_URL, SERVER_PATH .. CLIENT_VERSION_FILE)
@@ -130,9 +135,9 @@ local function updateClient()
         print("[CareerMP] ---------- CareerMP Update Failed to fetch latest client version!")
         return
     end
-	local update = needsUpdate(installed, latest)
-    if installed then
-        print("[CareerMP] ---------- CareerMP Update Client installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+	local update = needsUpdate(installedVersion, latest)
+    if installedVersion then
+        print("[CareerMP] ---------- CareerMP Update Client installed: " .. installedVersion.major .. "." .. installedVersion.minor .. "." .. installedVersion.revision)
         print("[CareerMP] ---------- CareerMP Update Client latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
         if update then
 			print("[CareerMP] ---------- CareerMP Update Updating client...")
@@ -151,10 +156,15 @@ local function updateClient()
 end
 
 local function updateServer()
-    local installed = ReadJson(SERVER_PATH .. SERVER_VERSION_FILE)
+    local installedVersion = ReadJson(SERVER_PATH .. SERVER_VERSION_FILE)
+	local installed = FS.Exists(SERVER_PATH .. SERVER_FILE)
 	if not installed then
+		print("[CareerMP] ---------- CareerMP Update Server not installed, downloading...")
+		downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
+	end
+	if not installedVersion then
         print("[CareerMP] ---------- CareerMP Update Applying self version!")
-		installed = HARD_SERVER_VERSION
+		installedVersion = HARD_SERVER_VERSION
 		WriteJson(SERVER_PATH .. SERVER_VERSION_FILE, HARD_SERVER_VERSION)
 	end
     local latestVersionFile = downloadVersionFile(SERVER_UPDATE_URL, SERVER_PATH .. SERVER_VERSION_FILE)
@@ -163,9 +173,9 @@ local function updateServer()
         print("[CareerMP] ---------- CareerMP Update Failed to fetch latest server version")
         return
     end
-	local update = needsUpdate(installed, latest)
-    if installed then
-        print("[CareerMP] ---------- CareerMP Update Server installed: " .. installed.major .. "." .. installed.minor .. "." .. installed.revision)
+	local update = needsUpdate(installedVersion, latest)
+    if installedVersion then
+        print("[CareerMP] ---------- CareerMP Update Server installed: " .. installedVersion.major .. "." .. installedVersion.minor .. "." .. installedVersion.revision)
         print("[CareerMP] ---------- CareerMP Update Server latest: " .. latest.major .. "." .. latest.minor .. "." .. latest.revision)
         if update then
 			print("[CareerMP] ---------- CareerMP Update Updating server...")
