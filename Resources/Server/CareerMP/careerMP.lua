@@ -23,6 +23,7 @@ local configPath = "Resources/Server/CareerMP/config/"
 local defaultConfig = {
 	server = {
 		autoUpdate = true,
+		autoRestart = true,
 		longWindowMax = 10000,
 		shortWindowMax = 1000,
 		longWindowSeconds = 300,
@@ -146,6 +147,7 @@ local function updateClient()
         downloadFile(CLIENT_URL, CLIENT_PATH .. CLIENT_FILE)
         print("[CareerMP] ---------- CareerMP Update Client version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
     end
+	return update
 end
 
 local function updateServer()
@@ -178,6 +180,7 @@ local function updateServer()
         downloadFile(SERVER_URL, SERVER_PATH .. SERVER_FILE)
         print("[CareerMP] ---------- CareerMP Update Server version updated to " ..  latest.major .. "." .. latest.minor .. "." .. latest.revision .. "! Restart the server to apply the update!")
     end
+	return update
 end
 
 function onInit()
@@ -228,8 +231,12 @@ function onInit()
 	end
 
 	if Config.server.autoUpdate then
-		updateClient()
-		updateServer()
+		local update
+		update = updateClient()
+		update = updateServer()
+		if update and Config.server.autoRestart then
+			exit()
+		end
 	end
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
