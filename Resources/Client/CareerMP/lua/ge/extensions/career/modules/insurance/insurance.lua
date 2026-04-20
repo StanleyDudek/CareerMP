@@ -496,7 +496,6 @@ local function onAfterVehicleRepaired(vehInfo)
   end
 
   career_saveSystem.saveCurrent({vehInfo.id})
-  extensions.hook("onAfterVehicleRepaired", career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
 end
 
 local startRepairVehInfo
@@ -553,7 +552,6 @@ local function startRepairInstant(vehInfo, callback, skipSound)
     end)
     if callback then return end
   end
-  extensions.hook("onVehicleRepairInstant", career_modules_inventory.getVehicleIdFromInventoryId(vehInfo.id))
   onAfterVehicleRepaired(vehInfo)
 end
 
@@ -609,7 +607,7 @@ end
 
 local function startRepairInGarage(invVehId, repairOptionData)
   local vehId = career_modules_inventory.getVehicleIdFromInventoryId(invVehId)
-  extensions.hook("onRepairInGarage", invVehId, vehId)
+  extensions.hook("onRepairInGarage", invVehId)
   return startRepair(invVehId, repairOptionData, (vehId and repairOptionData.repairTime<= 0) and
     function(vehInfo)
       local vehObj = getObjectByID(vehId)
