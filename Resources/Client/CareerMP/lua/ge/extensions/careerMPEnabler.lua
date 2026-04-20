@@ -20,6 +20,9 @@ local syncRequested = false
 local originalMPOnUpdate
 local originalGetDriverData
 
+local inComputer = false
+local inComputerMenus = false
+
 --Settings
 
 local userTrafficSettings = {}
@@ -264,45 +267,30 @@ local function computerMenuHandler(targetVehicleID)
 	if targetVehicleID then
 		local veh = be:getObjectByID(targetVehicleID)
 		if veh then
-			if gameplay_walk.isWalking() then
-				gameplay_walk.getInVehicle(veh)
-			else
-				be:enterVehicle(0, veh)
+			if veh.JBeam ~= "unicycle" then
+				if gameplay_walk.isWalking() then
+					gameplay_walk.getInVehicle(veh)
+				else
+					be:enterVehicle(0, veh)
+				end
+				inComputerMenus = true
 			end
 		end
 	end
 end
 
-local function onPartShoppingStarted(targetVehicleID)
-	computerMenuHandler(targetVehicleID)
+local function onComputerOpened()
+	if inComputerMenus then
+		inComputerMenus = false
+	end
+	inComputer = true
 end
 
-local function onRepairInGarage(invVehId, targetVehicleID)
-	--computerMenuHandler(targetVehicleID)
-end
-
-local function onVehicleRepairDelayed(targetVehicleID)
-	--computerMenuHandler(targetVehicleID)
-end
-
-local function onVehicleRepairInstant(targetVehicleID)
-	--computerMenuHandler(targetVehicleID)
-end
-
-local function onAfterVehicleRepaired(targetVehicleID)
-	--computerMenuHandler(targetVehicleID)
-end
-
-local function onCareerTuningStarted(targetVehicleID)
-	computerMenuHandler(targetVehicleID)
-end
-
-local function onVehiclePaintingUiOpened(targetVehicleID)
-	computerMenuHandler(targetVehicleID)
-end
-
-local function onPerformanceTestStarted(targetVehicleID)
-	computerMenuHandler(targetVehicleID)
+local function onComputerClosed()
+	inComputer = false
+	if inComputerMenus then
+		inComputer = true
+	end
 end
 
 --Patch BeamMP behavior and topBar
@@ -456,6 +444,11 @@ local function onUpdate(dtReal, dtSim, dtRaw)
 				end
 			end
 		end
+		if inComputer or inComputerMenus then
+			if gameplay_walk.isWalking() then
+				gameplay_walk.toggleWalkingMode()
+			end
+		end
 	end
 end
 
@@ -499,14 +492,13 @@ M.onVehicleSwitched = onVehicleSwitched
 M.onSpeedTrapTriggered = onSpeedTrapTriggered
 M.onRedLightCamTriggered = onRedLightCamTriggered
 
-M.onCareerTuningStarted = onCareerTuningStarted
-M.onPartShoppingStarted = onPartShoppingStarted
-M.onPerformanceTestStarted = onPerformanceTestStarted
-M.onRepairInGarage = onRepairInGarage
-M.onVehicleRepairDelayed = onVehicleRepairDelayed
-M.onVehicleRepairInstant = onVehicleRepairInstant
-M.onAfterVehicleRepaired = onAfterVehicleRepaired
-M.onVehiclePaintingUiOpened = onVehiclePaintingUiOpened
+M.onComputerOpened = onComputerOpened
+M.onComputerClosed = onComputerClosed
+
+M.onCareerTuningStarted = computerMenuHandler
+M.onPartShoppingStarted = computerMenuHandler
+M.onPerformanceTestStarted = computerMenuHandler
+M.onVehiclePaintingUiOpened = computerMenuHandler
 
 M.onClientPostStartMission = onClientPostStartMission
 

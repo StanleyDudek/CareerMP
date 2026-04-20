@@ -55,6 +55,7 @@ local function openMenu(computerFacility, resetActiveVehicleIndex, activityEleme
   end
 
   guihooks.trigger('ChangeState', {state = 'computer'})
+  extensions.hook("onComputerOpened")
 end
 
 local function computerButtonCallback(buttonId, inventoryId)
@@ -94,6 +95,7 @@ end
 
 local function onMenuClosed()
   if tether then tether.remove = true tether = nil end
+  extensions.hook("onComputerClosed")
 end
 
 local function closeMenu()
