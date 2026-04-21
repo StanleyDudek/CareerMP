@@ -20,7 +20,6 @@ local syncRequested = false
 local originalMPOnUpdate
 local originalGetDriverData
 
-local inComputer = false
 local inComputerMenus = false
 
 --Settings
@@ -221,11 +220,18 @@ local function onVehicleReady(gameVehicleID)
 end
 
 local function onVehicleSwitched(oldGameVehicleID, newGameVehicleID)
-	local veh = be:getObjectByID(newGameVehicleID)
-	if veh then
-		if hiddens[veh.JBeam] then
+	local newVeh = be:getObjectByID(newGameVehicleID)
+	local oldVeh = be:getObjectByID(oldGameVehicleID)
+	if newVeh then
+		if hiddens[newVeh.JBeam] then
 			if not MPVehicleGE.isOwn(newGameVehicleID) then
 				be:enterNextVehicle(0, 1)
+			end
+		end
+		if newVeh.JBeam == "unicycle" then
+			if inComputerMenus then
+				gameplay_walk.setWalkingMode(false)
+				be:enterVehicle(0, oldVeh)
 			end
 		end
 	end
@@ -282,14 +288,6 @@ end
 local function onComputerOpened()
 	if inComputerMenus then
 		inComputerMenus = false
-	end
-	inComputer = true
-end
-
-local function onComputerClosed()
-	inComputer = false
-	if inComputerMenus then
-		inComputer = true
 	end
 end
 
@@ -444,11 +442,6 @@ local function onUpdate(dtReal, dtSim, dtRaw)
 				end
 			end
 		end
-		if inComputer or inComputerMenus then
-			if gameplay_walk.isWalking() then
-				gameplay_walk.toggleWalkingMode()
-			end
-		end
 	end
 end
 
@@ -493,7 +486,6 @@ M.onSpeedTrapTriggered = onSpeedTrapTriggered
 M.onRedLightCamTriggered = onRedLightCamTriggered
 
 M.onComputerOpened = onComputerOpened
-M.onComputerClosed = onComputerClosed
 
 M.onCareerTuningStarted = computerMenuHandler
 M.onPartShoppingStarted = computerMenuHandler
