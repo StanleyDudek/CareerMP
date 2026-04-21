@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 30}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 30}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 31}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 31}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
