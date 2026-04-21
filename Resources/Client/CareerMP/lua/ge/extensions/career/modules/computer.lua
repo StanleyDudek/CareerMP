@@ -6,8 +6,8 @@ local M = {}
 
 M.dependencies = {"career_career"}
 
-local computerTetherRangeSphere = 20 --meter
-local computerTetherRangeBox = 20 --meter
+local computerTetherRangeSphere = 25 --meter
+local computerTetherRangeBox = 25 --meter
 local tether
 
 local computerFunctions
@@ -95,7 +95,6 @@ end
 
 local function onMenuClosed()
   if tether then tether.remove = true tether = nil end
-  extensions.hook("onComputerClosed")
 end
 
 local function closeMenu()
