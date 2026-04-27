@@ -435,9 +435,12 @@ local function onUpdate(dtReal, dtSim, dtRaw)
 				if veh then
 					if not MPVehicleGE.isOwn(vehicles[serverVehicleID].gameVehicleID) then
 						if veh.JBeam == "unicycle" then
-							veh:queueLuaCommand('careerMPEnabler.setUnicycleGhost(' .. tostring(clientConfig.unicycleGhost) .. ')')
+							veh:queueLuaCommand(string.format('careerMPEnabler.setGhost(%s)', tostring(clientConfig.remoteUnicycleGhost)))
+						else
+							veh:queueLuaCommand(string.format('careerMPEnabler.setGhost(%s)', tostring(clientConfig.remoteVehicleGhost)))
 						end
-						veh:queueLuaCommand('careerMPEnabler.setAllGhost(' .. tostring(clientConfig.allGhost) .. ')')
+					elseif veh.JBeam == "unicycle" then
+						veh:queueLuaCommand(string.format('careerMPEnabler.setGhost(%s)', tostring(clientConfig.localUnicycleGhost)))
 					end
 				end
 			end
