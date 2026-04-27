@@ -6,11 +6,7 @@ local function onVehicleReady()
 	obj:queueGameEngineLua("careerMPPerPartPaint.onVehicleReady(" .. obj:getID() .. ") ")
 end
 
-local function setUnicycleGhost(enabled)
-	obj:setGhostEnabled(enabled)
-end
-
-local function setAllGhost(enabled)
+local function setGhost(enabled)
 	obj:setGhostEnabled(enabled)
 end
 
@@ -22,8 +18,7 @@ end
 
 M.onConditionCheck = onConditionCheck
 
-M.setAllGhost = setAllGhost
-M.setUnicycleGhost = setUnicycleGhost
+M.setGhost = setGhost
 
 M.onVehicleReady = onVehicleReady
 
