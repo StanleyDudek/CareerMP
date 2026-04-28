@@ -574,8 +574,10 @@ local function startRepair(vehInvId, repairOptionData, callback)
     Engine.Audio.playOnce('AudioGui', 'event:>UI>Career>Buy_01')
   end
 
+  local paintRepair
   if repairOptionData.isInsuranceRepair then -- the player can repair on his own without insurance
     makeRepairClaim(vehInvId, repairOptionData.cost, vehInfo)
+    paintRepair = getPlCoverageOptionValue(vehInvId, "paintRepair")
   else
     career_modules_insurance_history.addToPlHistory({
       type = "privateRepair",
@@ -586,10 +588,10 @@ local function startRepair(vehInvId, repairOptionData, callback)
         damageCost = career_modules_valueCalculator.getRepairDetails(vehInfo).price,
       }
     })
+    paintRepair = true
   end
 
   -- the actual repair
-  local paintRepair = getPlCoverageOptionValue(vehInvId, "paintRepair")
   local data = {
     partConditions = vehInfo.partConditions,
     paintRepair = paintRepair,
