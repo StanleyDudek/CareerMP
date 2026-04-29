@@ -28,11 +28,11 @@ This is basically the same as single player career mode, but there will be real 
 ## Requirements
 Due to multiplayer overhead, client performance requirements are accordingly more demanding than single player career. Players with moderate systems have reported 5-10% impact compared to an unmodded BeamMP server lobby, high end systems are not really affected, and low end systems will suffer and struggle to maintain realtime physics and position sync if they are running fewer than 20-30 FPS.
 
-CareerMP was initially made to work on the following versions of BeamNG and BeamMP softwares:
-- BeamNG.drive v0.38.4
-- BeamMP Server v3.9.0 (v3.9.1)
-- BeamMP Launcher v2.7.0
-- BeamMP Client v4.20.2
+CareerMP was last verified to work on the following versions of BeamNG and BeamMP softwares:
+- BeamNG.drive v0.38.5
+- BeamMP Server v3.9.2
+- BeamMP Launcher v2.8.0
+- BeamMP Client v4.21.1
 
 Updates to any of these could possibly render CareerMP non-functional without notice.
 
@@ -42,7 +42,7 @@ Updates to any of these could possibly render CareerMP non-functional without no
 3. Set `Map = "/levels/west_coast_usa/info.json"` in your `ServerConfig.toml`
 4. Once the server is run with CareerMP installed, a config file will be generated, and a client mod .zip will be fetched if it is not present in `.../Resources/Client/`.
 5. Configure CareerMP how you like from the server console, or by editing the settings in `.../Resources/Server/CareerMP/config/config.json`
-6. Since version 0.0.28, CareerMP can autoUpdate itself. Once installed on your server, there are various ways to apply the update, from Restarting the server to manually running console commands, and if you have restart scripts for your server, then it also supports autoRestart
+6. Since version 0.0.28, CareerMP can autoUpdate itself. Once installed on your server, there are various ways to apply the update, from Restarting the server to manually running console commands, and if you have restart scripts for your server, then it also supports autoExit
 
 
 ## Server Console Usage
@@ -56,7 +56,7 @@ As CareerMP relies on the base game's career mode, it currently will only functi
 
 CareerMP provides no player moderation itself, and should not conflict with the server moderation plugin of your choice, provided all players can be allowed to spawn at least 100 vehicles.
 
-CareerMP uses your BeamMP username to create a save file, and will currently always start you in the save file matching your BeamMP username when you join the server. You can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player to autoload online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username before joining. You may also load any save from the ESC menu in game.
+CareerMP uses your BeamMP username (or the server configured save name) to create a save file, and will currently always start you in the save file matching your BeamMP username (or the server configured save name) when you join the server. You can continue this file offline, you can continue this save in any other server running CareerMP, if you would like to use a specific file from single player to autoload online in a server running CareerMP, you can make sure the save file's save name matches your BeamMP username (or the server configured save name) before joining. You may also load any save from the ESC menu in game.
 
 Be aware that using the same save across modded servers and unmodded servers will likely face compatibility issues.
 
