@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 33}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 33}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 34}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 34}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
@@ -40,8 +40,10 @@ local defaultConfig = {
 		serverSaveSuffix = "",
 		serverSaveNameEnabled = false,
 		roadTrafficAmount = 0,
+		extraTrafficAmount = 0,
 		parkedTrafficAmount = 0,
 		roadTrafficEnabled = false,
+		extraTrafficEnabled = false,
 		parkedTrafficEnabled = false,
 		worldEditorEnabled = false,
 		consoleEnabled = false,
@@ -277,6 +279,17 @@ local function prepareConfig()
 						print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " set to " .. tostring(value))
 						updateFound = true
 						Config[section][field] = value
+					end
+				end
+			end
+		end
+		for _, section in pairs({"client", "server"}) do
+			if Config[section] then
+				for field in pairs(Config[section]) do
+					if defaultConfig[section][field] == nil then
+						print("[CareerMP] ---------- CareerMP Config " .. section .. " " .. field .. " is invalid, removing")
+						updateFound = true
+						Config[section][field] = nil
 					end
 				end
 			end
