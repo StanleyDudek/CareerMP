@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 35}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 35}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 36}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 36}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
@@ -352,11 +352,10 @@ function onInit()
 
 	prepareConfig()
 
-	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
-		FS.CreateDirectory(SERVER_PATH .. "/versions")
-	end
-
 	if Config.server.autoUpdate then
+		if not FS.IsDirectory(SERVER_PATH .. "/versions") then
+			FS.CreateDirectory(SERVER_PATH .. "/versions")
+		end
 		local update
 		update = updateClient()
 		update = updateServer()
@@ -718,6 +717,9 @@ function SetConfig(arguments)
 end
 
 function Update(arguments)
+	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
+		FS.CreateDirectory(SERVER_PATH .. "/versions")
+	end
 	local update
 	update = updateClient()
 	update = updateServer()
