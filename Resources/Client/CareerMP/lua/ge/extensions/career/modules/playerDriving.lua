@@ -68,7 +68,7 @@ local function setupTraffic(forceSetup)
 
     -- police amount and vehicle pooling
     local policeAmount = M.debugMode and testTrafficAmounts.police or 0 -- temporarily disabled by default
-    local extraAmount = policeAmount -- enables traffic pooling
+    local extraAmount = careerMPEnabler.getClientConfig().extraTrafficEnabled and careerMPEnabler.getClientConfig().extraTrafficAmount or settings.getValue('trafficExtraVehicles') and settings.getValue('trafficExtraAmount') or 0 -- enables traffic pooling
     playerData.trafficActive = restrict and testTrafficAmounts.active or amount -- store the amount here for future usage
     if playerData.trafficActive == 0 then playerData.trafficActive = math.huge end
 
@@ -78,7 +78,7 @@ local function setupTraffic(forceSetup)
       gameplay_parking.setupVehicles(restrict and testTrafficAmounts.parkedCars or parkedAmount)
     end
     if careerMPEnabler.getClientConfig().roadTrafficEnabled then
-      gameplay_traffic.setupTraffic(restrict and testTrafficAmounts.traffic + extraAmount or amount + extraAmount, 0, {policeAmount = policeAmount, simpleVehs = true, autoLoadFromFile = true})
+      gameplay_traffic.setupTraffic(restrict and testTrafficAmounts.traffic + extraAmount or amount + extraAmount, 0, {activeAmount = playerData.trafficActive, policeAmount = policeAmount, simpleVehs = true, autoLoadFromFile = true})
     end
     setTrafficVars()
 
