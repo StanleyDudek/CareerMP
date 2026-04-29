@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 34}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 34}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 35}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 35}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
@@ -20,10 +20,12 @@ local SERVER_UPDATE_URL = RAW .. GITHUB_REPO .. BRANCH .. SERVER_PATH .. SERVER_
 
 local configPath = "Resources/Server/CareerMP/config/"
 
+local willExit = false
+
 local defaultConfig = {
 	server = {
 		autoUpdate = true,
-		autoRestart = true,
+		autoExit = true,
 		longWindowMax = 10000,
 		shortWindowMax = 1000,
 		longWindowSeconds = 300,
@@ -345,6 +347,9 @@ function onInit()
 	MP.RegisterEvent("Update","Update")
 	MP.RegisterEvent("Help","Help")
 
+	MP.RegisterEvent("exitTimer","exitTimer")
+	MP.CreateEventTimer("exitTimer", 1000)
+
 	prepareConfig()
 
 	if not FS.IsDirectory(SERVER_PATH .. "/versions") then
@@ -355,12 +360,18 @@ function onInit()
 		local update
 		update = updateClient()
 		update = updateServer()
-		if update and Config.server.autoRestart then
-			exit()
+		if update and Config.server.autoExit then
+			willExit = true
 		end
 	end
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
+end
+
+function exitTimer()
+	if willExit then
+		exit()
+	end
 end
 
 function perPartPaintingHandler(player_id, data)
@@ -710,8 +721,8 @@ function Update(arguments)
 	local update
 	update = updateClient()
 	update = updateServer()
-	if update and Config.server.autoRestart then
-		exit()
+	if update and Config.server.autoExit then
+		willExit = true
 	end
 end
 
