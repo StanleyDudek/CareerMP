@@ -1,8 +1,8 @@
 --CareerMP (SERVER) by Dudekahedron, 2026
 --Thanks to Bouboule, and Lion and Luuk from BeamPaint, for http request examples
 
-local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 36}
-local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 36}
+local HARD_CLIENT_VERSION = {major = 0, minor = 0, revision = 37}
+local HARD_SERVER_VERSION = {major = 0, minor = 0, revision = 37}
 
 local RAW = "https://raw.githubusercontent.com/"
 local GITHUB_REPO = "StanleyDudek/CareerMP/"
@@ -58,7 +58,8 @@ local defaultConfig = {
 	}
 }
 
-local synced = false
+local pendingActivation = {}
+local activationThreshold = 90
 local vehicleStates = {}
 local loadedPrefabs = {}
 
@@ -347,8 +348,8 @@ function onInit()
 	MP.RegisterEvent("Update","Update")
 	MP.RegisterEvent("Help","Help")
 
-	MP.RegisterEvent("exitTimer","exitTimer")
-	MP.CreateEventTimer("exitTimer", 1000)
+	MP.RegisterEvent("tick","tick")
+	MP.CreateEventTimer("tick", 1000)
 
 	prepareConfig()
 
@@ -365,12 +366,6 @@ function onInit()
 	end
 
 	print("[CareerMP] ---------- CareerMP Loaded!")
-end
-
-function exitTimer()
-	if willExit then
-		exit()
-	end
 end
 
 function perPartPaintingHandler(player_id, data)
@@ -569,13 +564,14 @@ function redLight(player_id, data)
 end
 
 function trafficLightTimer()
-	if synced then
-		MP.TriggerClientEvent(-1, "rxTrafficSignalTimer", tostring(signalTimer:GetCurrent()))
+	for id in pairs(MP.GetPlayers()) do
+		if MP.IsPlayerConnected(id) then
+			MP.TriggerClientEvent(id, "rxTrafficSignalTimer", tostring(signalTimer:GetCurrent()))
+		end
 	end
 end
 
 function careerVehSyncRequested(player_id)
-	synced = true
 	MP.TriggerClientEventJson(player_id, "rxCareerVehSync", vehicleStates)
 end
 
@@ -595,6 +591,7 @@ end
 
 function careerSyncRequested(player_id)
 	MP.TriggerClientEventJson(player_id, "rxCareerSync", Config.client)
+	pendingActivation[player_id].careerActive = true
 end
 
 function prefabSyncRequested(player_id)
@@ -620,8 +617,35 @@ function careerVehicleActiveHandler(player_id, data)
 	MP.TriggerClientEventJson(-1, "rxCareerVehSync", vehicleStates)
 end
 
+function validateCareerMPActivation()
+	for id in pairs(MP.GetPlayers()) do
+		if MP.IsPlayerConnected(id) then
+			if pendingActivation[id] then
+				if not pendingActivation[id].careerActive then
+					if pendingActivation[id].joinTimestamp then
+						if signalTimer:GetCurrent() - pendingActivation[id].joinTimestamp >= activationThreshold then
+							MP.DropPlayer(id, "CareerMP failed to load!")
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function tick()
+	if willExit then
+		exit()
+	end
+	validateCareerMPActivation()
+end
+
 function onPlayerJoinHandler(player_id)
 	loadedPrefabs[player_id] = {}
+	pendingActivation[player_id] = {
+		joinTimestamp = signalTimer:GetCurrent(),
+		careerActive = false
+	}
 end
 
 function onVehicleSpawnHandler(player_id, vehicle_id,  data)
@@ -649,6 +673,7 @@ function onPlayerDisconnectHandler(player_id)
 	loadedPrefabs[player_id] = nil
 	ledger.send[player_id] = nil
 	ledger.receive[player_id] = nil
+	pendingActivation[player_id] = nil
 end
 
 function onConsoleInputHandler(message)
