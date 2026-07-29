@@ -1,4 +1,4 @@
-# CareerMP
+# CareerMP - NOT CURRENTLY COMPATIBLE WITH BEAMNG.DRIVE 0.39
 Enabling [BeamNG.drive](https://beamng.com/game/)'s Career Mode in [BeamMP](https://beammp.com/) servers.
 
 <img width="2468" height="861" alt="image" src="https://github.com/user-attachments/assets/bd9bcb2f-530f-4fcd-a76b-732ec6ce7159" />
